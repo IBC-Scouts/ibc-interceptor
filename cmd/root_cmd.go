@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/spf13/cobra"
+
+	"github.com/ethereum/go-ethereum/log"
+
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/spf13/cobra"
 )
 
 func RootCmd() *cobra.Command {
@@ -51,12 +53,12 @@ func initCmd() *cobra.Command {
 			//	appState := app.SimpleGenesis(peptest.Accounts, peptest.ValidatorAccounts)
 			//	appStateBytes, err := json.Marshal(appState)
 			//	if err != nil {
-			//return err
+			// return err
 			//}
 
 			// genesis state will be validated when sealed.
 			//	genesis := node.PeptideGenesis{}
-			//i	genesis.ChainID = config.ChainId
+
 			//	genesis.L1.Hash = config.L1.Hash
 			//	genesis.L1.Number = config.L1.Number
 			//	genesis.AppState = appStateBytes
@@ -238,7 +240,7 @@ func startCmd() *cobra.Command {
 		},
 	}
 
-	//server.AddStartCommandFlags(cmd)
+
 	cmd.Flags().String("geth-engine-addr", "", "RPC address of geth execution engine")
 	return cmd
 }
@@ -278,7 +280,7 @@ func exportCmd() *cobra.Command {
 		},
 	}
 
-	//server.AddExportCommandFlags(cmd)
+
 	return cmd
 }
 
