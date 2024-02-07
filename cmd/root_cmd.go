@@ -44,17 +44,17 @@ func initCmd() *cobra.Command {
 			//		WithChainId().
 			//		WithDbBackend().
 			//		WithLogger(logger)
-
+			//
 			// create an in memory db backed app only to generate an initial genesis file
-			// TODO(colin): uncomment when we use abci app
-			///app := app.New(config.ChainId, "", tmdb.NewMemDB(), logger)
-
-			// TODO use these testing accounts for now until we add proper account management
-			//	appState := app.SimpleGenesis(peptest.Accounts, peptest.ValidatorAccounts)
-			//	appStateBytes, err := json.Marshal(appState)
-			//	if err != nil {
-			// return err
-			//}
+			// // TODO(colin): uncomment when we use abci app
+			// app := app.New(config.ChainId, "", tmdb.NewMemDB(), logger)
+			//
+			// // TODO use these testing accounts for now until we add proper account management
+			// appState := app.SimpleGenesis(peptest.Accounts, peptest.ValidatorAccounts)
+			// appStateBytes, err := json.Marshal(appState)
+			// if err != nil {
+			// 	return err
+			// }
 
 			// genesis state will be validated when sealed.
 			//	genesis := node.PeptideGenesis{}
@@ -321,7 +321,7 @@ func genAccountsCmd() *cobra.Command {
 
 func newEngineClient(gethEngineAddr string) (*sources.EngineClient, error) {
 	// necessary setup args
-	ctx, m, log := context.Background(), metrics.NewMetrics(""), log.New()
+	ctx, m, logger := context.Background(), metrics.NewMetrics(""), log.New()
 
 	if strings.TrimSpace(gethEngineAddr) == "" {
 		return nil, fmt.Errorf("geth execution engine address must be non-empty")
@@ -333,7 +333,7 @@ func newEngineClient(gethEngineAddr string) (*sources.EngineClient, error) {
 		//		client.WithGethRPCOptions(auth),
 		client.WithDialBackoff(10),
 	}
-	rpcClient, err := client.NewRPC(ctx, log, gethEngineAddr, opts...)
+	rpcClient, err := client.NewRPC(ctx, logger, gethEngineAddr, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -343,7 +343,7 @@ func newEngineClient(gethEngineAddr string) (*sources.EngineClient, error) {
 	rpcCfg := sources.EngineClientDefaultConfig(rollupCfg)
 
 	engineClient, err := sources.NewEngineClient(
-		client.NewInstrumentedRPC(rpcClient, m), log, m.L2SourceCache, rpcCfg,
+		client.NewInstrumentedRPC(rpcClient, m), logger, m.L2SourceCache, rpcCfg,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Engine client: %w", err)
