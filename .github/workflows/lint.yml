@@ -1,4 +1,4 @@
-name: e2e
+name: lint
 on:
   push:
     branches: [main]
@@ -9,7 +9,7 @@ permissions:
   contents: read
 jobs:
   golangci:
-    name: lint
+    name: golangci-lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-go@v4
