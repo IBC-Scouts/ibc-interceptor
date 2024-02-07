@@ -240,7 +240,6 @@ func startCmd() *cobra.Command {
 		},
 	}
 
-
 	cmd.Flags().String("geth-engine-addr", "", "RPC address of geth execution engine")
 	return cmd
 }
@@ -279,7 +278,6 @@ func exportCmd() *cobra.Command {
 			return nil
 		},
 	}
-
 
 	return cmd
 }
