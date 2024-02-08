@@ -8,6 +8,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/ethereum/go-ethereum/log"
+	gn "github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -155,7 +157,6 @@ func startCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-
 			_, err = newEngineClient(gethEngineAddr)
 			if err != nil {
 				return err
@@ -327,10 +328,10 @@ func newEngineClient(gethEngineAddr string) (*sources.EngineClient, error) {
 		return nil, fmt.Errorf("geth execution engine address must be non-empty")
 	}
 
-	// TODO(colin): enable auth?
-	//	auth := rpc.WithHTTPAuth(gn.NewJWTAuth(cfg.L2EngineJWTSecret))
+	testingJWTSecret := [32]byte{123}
+	auth := rpc.WithHTTPAuth(gn.NewJWTAuth(testingJWTSecret))
 	opts := []client.RPCOption{
-		//		client.WithGethRPCOptions(auth),
+		client.WithGethRPCOptions(auth),
 		client.WithDialBackoff(10),
 	}
 	rpcClient, err := client.NewRPC(ctx, logger, gethEngineAddr, opts...)
