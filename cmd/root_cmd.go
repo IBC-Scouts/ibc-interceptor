@@ -350,7 +350,11 @@ func newEngineClient(gethEngineAddr string, gethAuthSecret []byte) (*sources.Eng
 	}
 
 	var authSecret [32]byte
-	copy(authSecret[:], gethAuthSecret[:min(len(gethAuthSecret), 32)])
+	if len(gethAuthSecret) == 0 {
+		authSecret = [32]byte{123}
+	} else {
+		copy(authSecret[:], gethAuthSecret[:min(len(gethAuthSecret), 32)])
+	}
 
 	auth := rpc.WithHTTPAuth(gn.NewJWTAuth(authSecret))
 	opts := []client.RPCOption{
