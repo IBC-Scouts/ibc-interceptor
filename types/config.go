@@ -6,6 +6,8 @@ import (
 	"os"
 )
 
+const DefaultConfigFilePath = "config.json"
+
 // Config is the configuration for the interceptor binary.
 type Config struct {
 	GethEngineAddr string `json:"gethEngineAddr"`

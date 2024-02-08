@@ -152,6 +152,10 @@ func startCmd() *cobra.Command {
 				return err
 			}
 
+			if configFilePath == "" {
+				configFilePath = types.DefaultConfigFilePath
+			}
+
 			config, err := types.ConfigFromFilePath(configFilePath)
 			if err != nil {
 				return err
