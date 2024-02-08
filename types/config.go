@@ -10,6 +10,8 @@ import (
 type Config struct {
 	GethEngineAddr string `json:"gethEngineAddr"`
 	GethAuthSecret []byte `json:"gethAuthSecret"`
+
+	EngineServerAddr string `json:"engineServerAddr"`
 }
 
 func ConfigFromFilePath(filePath string) (*Config, error) {
