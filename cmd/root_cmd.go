@@ -13,6 +13,9 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
+
+	ibcinterceptor "github.com/ibc-scouts/ibc-interceptor"
+	"github.com/ibc-scouts/ibc-interceptor/types"
 )
 
 func RootCmd() *cobra.Command {
@@ -151,15 +154,30 @@ func startCmd() *cobra.Command {
 		Use:   "start",
 		Short: "Start the Interceptor Node",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			gethEngineAddr, err := cmd.Flags().GetString("geth-engine-addr")
+			configFilePath, err := cmd.Flags().GetString("config")
 			if err != nil {
 				return err
 			}
 
-			_, err = newEngineClient(gethEngineAddr)
+			config, err := types.ConfigFromFilePath(configFilePath)
 			if err != nil {
 				return err
 			}
+
+			gethEngineAddr, err := cmd.Flags().GetString("geth-engine-addr")
+			if err != nil {
+				return err
+			}
+			if gethEngineAddr != "" {
+				config.GethEngineAddr = gethEngineAddr
+			}
+
+			gethClient, err := newEngineClient(config.GethEngineAddr)
+			if err != nil {
+				return err
+			}
+
+			_ = ibcinterceptor.NewInterceptorNode(nil, gethClient)
 
 			/*
 				logger := server.DefaultLogger()
@@ -241,6 +259,8 @@ func startCmd() *cobra.Command {
 	}
 
 	cmd.Flags().String("geth-engine-addr", "", "RPC address of geth execution engine")
+	cmd.Flags().String("config", "", "Path to the interceptor config file")
+
 	return cmd
 }
 
