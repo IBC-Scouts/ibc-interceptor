@@ -8,6 +8,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/ethereum/go-ethereum/log"
+	gn "github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -172,7 +174,7 @@ func startCmd() *cobra.Command {
 				config.GethEngineAddr = gethEngineAddr
 			}
 
-			gethClient, err := newEngineClient(config.GethEngineAddr)
+			gethClient, err := newEngineClient(config.GethEngineAddr, config.GethAuthSecret)
 			if err != nil {
 				return err
 			}
@@ -339,7 +341,7 @@ func genAccountsCmd() *cobra.Command {
 	return cmd
 }
 
-func newEngineClient(gethEngineAddr string) (*sources.EngineClient, error) {
+func newEngineClient(gethEngineAddr string, gethAuthSecret []byte) (*sources.EngineClient, error) {
 	// necessary setup args
 	ctx, m, logger := context.Background(), metrics.NewMetrics(""), log.New()
 
@@ -347,10 +349,12 @@ func newEngineClient(gethEngineAddr string) (*sources.EngineClient, error) {
 		return nil, fmt.Errorf("geth execution engine address must be non-empty")
 	}
 
-	// TODO(colin): enable auth?
-	//	auth := rpc.WithHTTPAuth(gn.NewJWTAuth(cfg.L2EngineJWTSecret))
+	var authSecret [32]byte
+	copy(authSecret[:], gethAuthSecret[:min(len(gethAuthSecret), 32)])
+
+	auth := rpc.WithHTTPAuth(gn.NewJWTAuth(authSecret))
 	opts := []client.RPCOption{
-		//		client.WithGethRPCOptions(auth),
+		client.WithGethRPCOptions(auth),
 		client.WithDialBackoff(10),
 	}
 	rpcClient, err := client.NewRPC(ctx, logger, gethEngineAddr, opts...)
