@@ -1,4 +1,5 @@
 {
 	"gethEngineAddr": "http://localhost:8545",
-	"gethAuthSecret": [123]
+	"gethAuthSecret": [123],
+	"engineServerAddr": "localhost:3000"
 }
