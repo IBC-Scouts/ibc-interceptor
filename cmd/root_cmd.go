@@ -15,6 +15,9 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
+
+	ibcinterceptor "github.com/ibc-scouts/ibc-interceptor"
+	"github.com/ibc-scouts/ibc-interceptor/types"
 )
 
 func RootCmd() *cobra.Command {
@@ -153,14 +156,30 @@ func startCmd() *cobra.Command {
 		Use:   "start",
 		Short: "Start the Interceptor Node",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			configFilePath, err := cmd.Flags().GetString("config")
+			if err != nil {
+				return err
+			}
+
+			config, err := types.ConfigFromFilePath(configFilePath)
+			if err != nil {
+				return err
+			}
+
 			gethEngineAddr, err := cmd.Flags().GetString("geth-engine-addr")
 			if err != nil {
 				return err
 			}
-			_, err = newEngineClient(gethEngineAddr)
+			if gethEngineAddr != "" {
+				config.GethEngineAddr = gethEngineAddr
+			}
+
+			gethClient, err := newEngineClient(config.GethEngineAddr, config.GethAuthSecret)
 			if err != nil {
 				return err
 			}
+
+			_ = ibcinterceptor.NewInterceptorNode(nil, gethClient)
 
 			/*
 				logger := server.DefaultLogger()
@@ -242,6 +261,8 @@ func startCmd() *cobra.Command {
 	}
 
 	cmd.Flags().String("geth-engine-addr", "", "RPC address of geth execution engine")
+	cmd.Flags().String("config", "", "Path to the interceptor config file")
+
 	return cmd
 }
 
@@ -320,7 +341,7 @@ func genAccountsCmd() *cobra.Command {
 	return cmd
 }
 
-func newEngineClient(gethEngineAddr string) (*sources.EngineClient, error) {
+func newEngineClient(gethEngineAddr string, gethAuthSecret []byte) (*sources.EngineClient, error) {
 	// necessary setup args
 	ctx, m, logger := context.Background(), metrics.NewMetrics(""), log.New()
 
@@ -328,8 +349,14 @@ func newEngineClient(gethEngineAddr string) (*sources.EngineClient, error) {
 		return nil, fmt.Errorf("geth execution engine address must be non-empty")
 	}
 
-	testingJWTSecret := [32]byte{123}
-	auth := rpc.WithHTTPAuth(gn.NewJWTAuth(testingJWTSecret))
+	var authSecret [32]byte
+	if len(gethAuthSecret) == 0 {
+		authSecret = [32]byte{123}
+	} else {
+		copy(authSecret[:], gethAuthSecret[:min(len(gethAuthSecret), 32)])
+	}
+
+	auth := rpc.WithHTTPAuth(gn.NewJWTAuth(authSecret))
 	opts := []client.RPCOption{
 		client.WithGethRPCOptions(auth),
 		client.WithDialBackoff(10),
