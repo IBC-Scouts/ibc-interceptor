@@ -2,7 +2,6 @@ package server_test
 
 import (
 	"context"
-	"log"
 	"net"
 	"testing"
 
@@ -31,7 +30,7 @@ func TestDefaultConfig(t *testing.T) {
 
 func TestServer(t *testing.T) {
 	mockEngine := mock.NewMockExecEngine()
-	nopLogger := cmtlog.NewTMLogger(log.Writer())
+	nopLogger := cmtlog.NewNopLogger()
 
 	config := server.DefaultConfig("localhost:0")
 
