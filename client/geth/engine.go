@@ -16,9 +16,9 @@ import (
 )
 
 // NewGethEngineClient creates a new geth EngineClient
-func NewGethEngineClient(gethEngineAddr string, gethAuthSecret []byte) (*sources.EngineClient, error) {
+func NewGethEngineClient(gethEngineAddr string, gethAuthSecret []byte, logger log.Logger) (*sources.EngineClient, error) {
 	// necessary setup args
-	ctx, m, logger := context.Background(), metrics.NewMetrics(""), log.New()
+	ctx, m := context.TODO(), metrics.NewMetrics("")
 
 	if strings.TrimSpace(gethEngineAddr) == "" {
 		return nil, fmt.Errorf("geth execution engine address must be non-empty")
