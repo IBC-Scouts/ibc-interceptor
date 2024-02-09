@@ -1,5 +1,5 @@
 //nolint:revive
-package ibcinterceptor
+package main
 
 /*
 This file is used to import all the necessary dependencies for the rollup package

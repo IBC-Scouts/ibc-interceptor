@@ -1,4 +1,4 @@
-package ibcinterceptor
+package node
 
 import (
 	"github.com/ethereum-optimism/optimism/op-service/sources"

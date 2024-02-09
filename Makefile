@@ -7,7 +7,7 @@ BUILD_DIR := build
 
 build-interceptor:
 	@echo "Building the interceptor..."
-	@go build -o $(BUILD_DIR)/interceptor ./cmd/interceptor/main.go
+	@go build -o $(BUILD_DIR)/interceptor main.go
 	@echo "Build complete!"
 
 .PHONY: unit-tests
