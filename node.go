@@ -1,13 +1,7 @@
 package ibcinterceptor
 
 import (
-	"os"
-
-	ethlog "github.com/ethereum/go-ethereum/log"
-
 	"github.com/ethereum-optimism/optimism/op-service/sources"
-
-	cometlog "github.com/cometbft/cometbft/libs/log"
 
 	"github.com/ibc-scouts/ibc-interceptor/client/geth"
 	rpcee "github.com/ibc-scouts/ibc-interceptor/rpc_ee"
@@ -19,29 +13,27 @@ type InterceptorNode struct {
 	eeServer *rpcee.EERPCServer    // RPC server for the Execution Engine
 	geth     *sources.EngineClient // geth Execution Engine RPC bindings
 
-	cometLogger cometlog.Logger
-	ethLogger   ethlog.Logger
+	logger types.CompositeLogger
 }
 
 func NewInterceptorNode(config *types.Config) *InterceptorNode {
-	ethLogger := ethlog.New("module", "interceptor")
-	cometLogger := cometlog.NewTMLogger(cometlog.NewSyncWriter(os.Stdout)).With("module", "interceptor")
+	logger, err := config.GetLogger("module", "interceptor")
+	if err != nil {
+		panic(err)
+	}
 
-	cometLogger.Info("Interceptor Node starting", "config", config)
-
-	gethClient, err := geth.NewGethEngineClient(config.GethEngineAddr, config.GethAuthSecret)
+	gethClient, err := geth.NewGethEngineClient(config.GethEngineAddr, config.GethAuthSecret, logger.New("client", "geth"))
 	if err != nil {
 		panic(err)
 	}
 
 	rpcServerConfig := rpcee.DefaultConfig(config.EngineServerAddr)
-	eeServer := rpcee.NewEeRPCServer(rpcServerConfig, engine.GetExecutionEngineAPIs(gethClient, ethLogger), cometLogger)
+	eeServer := rpcee.NewEeRPCServer(rpcServerConfig, engine.GetExecutionEngineAPIs(gethClient, logger.With("server", "exec_engine_api")), logger.With("server", "exec_engine_rpc"))
 	return &InterceptorNode{
 		eeServer: eeServer,
 		geth:     gethClient,
 
-		cometLogger: cometLogger,
-		ethLogger:   ethLogger,
+		logger: logger,
 	}
 }
 

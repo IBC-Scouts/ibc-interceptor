@@ -1,0 +1,20 @@
+name: unit-tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - '**.go'
+permissions:
+  contents: read
+jobs:
+  interceptor:
+    name: Interceptor Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+      - uses: actions/checkout@v3
+      - name: Interceptor Unit Tests
+        run: go test -v -mod=readonly ./...
