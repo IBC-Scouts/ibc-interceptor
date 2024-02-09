@@ -24,7 +24,7 @@ func GetExecutionEngineAPIs(execEngine derive.Engine, logger log.Logger) []rpc.A
 	apis := []rpc.API{
 		{
 			Namespace: "engine",
-			Service:   &execEngineAPI{gethClient: execEngine, logger: logger},
+			Service:   newExecutionEngineAPI(execEngine, logger),
 		},
 	}
 
@@ -38,6 +38,14 @@ type execEngineAPI struct {
 	gethClient derive.Engine
 	logger     log.Logger
 	// lock   sync.RWMutex
+}
+
+// newExecutionEngineAPI returns a new execEngineAPI.
+func newExecutionEngineAPI(engine derive.Engine, logger log.Logger) *execEngineAPI {
+	return &execEngineAPI{
+		gethClient: engine,
+		logger:     logger,
+	}
 }
 
 func (e *execEngineAPI) ForkchoiceUpdatedV1(

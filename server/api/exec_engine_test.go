@@ -5,9 +5,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 
 	"github.com/cometbft/cometbft/libs/log"
 
@@ -58,4 +60,16 @@ func TestGetExecutionEngineAPIs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestExecutionEngineAPI(t *testing.T) {
+	mockEngine := mock.NewMockExecEngine()
+	eeAPI := api.NewExectionEngineAPI(mockEngine, log.NewNopLogger())
+
+	expResult := &eth.ForkchoiceUpdatedResult{PayloadID: &engine.PayloadID{1}}
+	mockEngine.ExpectForkchoiceUpdate(&eth.ForkchoiceState{}, &eth.PayloadAttributes{}, expResult, nil)
+
+	res, err := eeAPI.ForkchoiceUpdatedV3(eth.ForkchoiceState{}, eth.PayloadAttributes{})
+	require.NoError(t, err)
+	require.Equal(t, expResult, res)
 }
