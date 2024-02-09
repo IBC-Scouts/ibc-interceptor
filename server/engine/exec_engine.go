@@ -5,19 +5,19 @@ import (
 
 	"github.com/ethereum/go-ethereum/rpc"
 
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	eth "github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum-optimism/optimism/op-service/sources"
 
 	"github.com/cometbft/cometbft/libs/log"
 )
 
 // The public rpc methods are prefixed by the namespace (lower case) followed by all exported
 // methods of the "service" in camelcase
-func GetExecutionEngineAPIs(gethClient *sources.EngineClient, logger log.Logger) []rpc.API {
+func GetExecutionEngineAPIs(execEngine derive.Engine, logger log.Logger) []rpc.API {
 	apis := []rpc.API{
 		{
 			Namespace: "engine",
-			Service:   &execEngineAPI{gethClient: gethClient, logger: logger},
+			Service:   &execEngineAPI{gethClient: execEngine, logger: logger},
 		},
 		// {
 		// 	Namespace: "eth",
@@ -41,7 +41,7 @@ func GetExecutionEngineAPIs(gethClient *sources.EngineClient, logger log.Logger)
 // Implements the methods prefixed with "engine_" defined in
 // https://ethereum.github.io/execution-apis/api-documentation/
 type execEngineAPI struct {
-	gethClient *sources.EngineClient
+	gethClient derive.Engine
 	logger     log.Logger
 	// lock   sync.RWMutex
 }
