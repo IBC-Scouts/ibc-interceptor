@@ -5,7 +5,7 @@ import (
 
 	"github.com/ibc-scouts/ibc-interceptor/client/geth"
 	"github.com/ibc-scouts/ibc-interceptor/server"
-	"github.com/ibc-scouts/ibc-interceptor/server/engine"
+	"github.com/ibc-scouts/ibc-interceptor/server/api"
 	"github.com/ibc-scouts/ibc-interceptor/types"
 )
 
@@ -28,7 +28,7 @@ func NewInterceptorNode(config *types.Config) *InterceptorNode {
 	}
 
 	rpcServerConfig := server.DefaultConfig(config.EngineServerAddr)
-	eeServer := server.NewEeRPCServer(rpcServerConfig, engine.GetExecutionEngineAPIs(gethClient, logger.With("server", "exec_engine_api")), logger.With("server", "exec_engine_rpc"))
+	eeServer := server.NewEeRPCServer(rpcServerConfig, api.GetExecutionEngineAPIs(gethClient, logger.With("server", "exec_engine_api")), logger.With("server", "exec_engine_rpc"))
 	return &InterceptorNode{
 		eeServer: eeServer,
 		geth:     gethClient,
