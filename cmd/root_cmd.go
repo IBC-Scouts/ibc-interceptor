@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	ibcinterceptor "github.com/ibc-scouts/ibc-interceptor"
+	"github.com/ibc-scouts/ibc-interceptor/node"
 	"github.com/ibc-scouts/ibc-interceptor/types"
 )
 
@@ -169,7 +169,7 @@ func startCmd() *cobra.Command {
 				config.GethEngineAddr = gethEngineAddr
 			}
 
-			node := ibcinterceptor.NewInterceptorNode(config)
+			node := node.NewInterceptorNode(config)
 			if err := node.Start(); err != nil {
 				return err
 			}

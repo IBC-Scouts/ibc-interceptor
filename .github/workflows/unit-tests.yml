@@ -17,4 +17,4 @@ jobs:
           go-version: "1.21"
       - uses: actions/checkout@v3
       - name: Interceptor Unit Tests
-        run: go test -v -mod=readonly ./...
+        run: make unit-tests

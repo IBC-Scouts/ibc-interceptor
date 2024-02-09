@@ -1,39 +1,33 @@
-package engine
+package api
 
 import (
 	"context"
 
 	"github.com/ethereum/go-ethereum/rpc"
 
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	eth "github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum-optimism/optimism/op-service/sources"
 
 	"github.com/cometbft/cometbft/libs/log"
 )
 
 // The public rpc methods are prefixed by the namespace (lower case) followed by all exported
 // methods of the "service" in camelcase
-func GetExecutionEngineAPIs(gethClient *sources.EngineClient, logger log.Logger) []rpc.API {
+func GetExecutionEngineAPIs(execEngine derive.Engine, logger log.Logger) []rpc.API {
+	if execEngine == nil {
+		panic("execEngine is nil")
+	}
+	if logger == nil {
+		panic("logger is nil")
+	}
+
 	apis := []rpc.API{
 		{
 			Namespace: "engine",
-			Service:   &execEngineAPI{gethClient: gethClient, logger: logger},
+			Service:   newExecutionEngineAPI(execEngine, logger),
 		},
-		// {
-		// 	Namespace: "eth",
-		// 	Service:   &ethLikeServer{node: node, logger: logger.With("module", "eth")},
-		// },
-		// {
-		// 	Namespace: "pep",
-		// 	Service:   &peptideServer{node: node, logger: logger.With("module", "peptide")},
-		// },
 	}
-	// if enabledApis.IsAdminApiEnabled() {
-	// 	apis = append(apis, rpc.API{
-	// 		Namespace: "admin",
-	// 		Service:   &adminServer{node: node, logger: logger},
-	// 	})
-	// }
+
 	return apis
 }
 
@@ -41,9 +35,17 @@ func GetExecutionEngineAPIs(gethClient *sources.EngineClient, logger log.Logger)
 // Implements the methods prefixed with "engine_" defined in
 // https://ethereum.github.io/execution-apis/api-documentation/
 type execEngineAPI struct {
-	gethClient *sources.EngineClient
+	gethClient derive.Engine
 	logger     log.Logger
 	// lock   sync.RWMutex
+}
+
+// newExecutionEngineAPI returns a new execEngineAPI.
+func newExecutionEngineAPI(engine derive.Engine, logger log.Logger) *execEngineAPI {
+	return &execEngineAPI{
+		gethClient: engine,
+		logger:     logger,
+	}
 }
 
 func (e *execEngineAPI) ForkchoiceUpdatedV1(

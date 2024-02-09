@@ -1,16 +1,16 @@
-package ibcinterceptor
+package node
 
 import (
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 
 	"github.com/ibc-scouts/ibc-interceptor/client/geth"
-	rpcee "github.com/ibc-scouts/ibc-interceptor/rpc_ee"
-	"github.com/ibc-scouts/ibc-interceptor/server/engine"
+	"github.com/ibc-scouts/ibc-interceptor/server"
+	"github.com/ibc-scouts/ibc-interceptor/server/api"
 	"github.com/ibc-scouts/ibc-interceptor/types"
 )
 
 type InterceptorNode struct {
-	eeServer *rpcee.EERPCServer    // RPC server for the Execution Engine
+	eeServer *server.EERPCServer   // RPC server for the Execution Engine
 	geth     *sources.EngineClient // geth Execution Engine RPC bindings
 
 	logger types.CompositeLogger
@@ -27,8 +27,8 @@ func NewInterceptorNode(config *types.Config) *InterceptorNode {
 		panic(err)
 	}
 
-	rpcServerConfig := rpcee.DefaultConfig(config.EngineServerAddr)
-	eeServer := rpcee.NewEeRPCServer(rpcServerConfig, engine.GetExecutionEngineAPIs(gethClient, logger.With("server", "exec_engine_api")), logger.With("server", "exec_engine_rpc"))
+	rpcServerConfig := server.DefaultConfig(config.EngineServerAddr)
+	eeServer := server.NewEeRPCServer(rpcServerConfig, api.GetExecutionEngineAPIs(gethClient, logger.With("server", "exec_engine_api")), logger.With("server", "exec_engine_rpc"))
 	return &InterceptorNode{
 		eeServer: eeServer,
 		geth:     gethClient,

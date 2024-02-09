@@ -16,6 +16,8 @@ import (
 )
 
 // NewGethEngineClient creates a new geth EngineClient
+//
+// This is an implementation of the derive.Engine interface using a geth client.
 func NewGethEngineClient(gethEngineAddr string, gethAuthSecret []byte, logger log.Logger) (*sources.EngineClient, error) {
 	// necessary setup args
 	ctx, m := context.TODO(), metrics.NewMetrics("")
