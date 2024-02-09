@@ -14,26 +14,20 @@ import (
 // The public rpc methods are prefixed by the namespace (lower case) followed by all exported
 // methods of the "service" in camelcase
 func GetExecutionEngineAPIs(execEngine derive.Engine, logger log.Logger) []rpc.API {
+	if execEngine == nil {
+		panic("execEngine is nil")
+	}
+	if logger == nil {
+		panic("logger is nil")
+	}
+
 	apis := []rpc.API{
 		{
 			Namespace: "engine",
 			Service:   &execEngineAPI{gethClient: execEngine, logger: logger},
 		},
-		// {
-		// 	Namespace: "eth",
-		// 	Service:   &ethLikeServer{node: node, logger: logger.With("module", "eth")},
-		// },
-		// {
-		// 	Namespace: "pep",
-		// 	Service:   &peptideServer{node: node, logger: logger.With("module", "peptide")},
-		// },
 	}
-	// if enabledApis.IsAdminApiEnabled() {
-	// 	apis = append(apis, rpc.API{
-	// 		Namespace: "admin",
-	// 		Service:   &adminServer{node: node, logger: logger},
-	// 	})
-	// }
+
 	return apis
 }
 
