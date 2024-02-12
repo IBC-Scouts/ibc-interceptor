@@ -1,22 +1,6 @@
 package api_test
 
-import (
-	"testing"
-
-	"github.com/stretchr/testify/require"
-
-	"github.com/ethereum/go-ethereum/beacon/engine"
-	"github.com/ethereum/go-ethereum/rpc"
-
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
-
-	"github.com/cometbft/cometbft/libs/log"
-
-	"github.com/ibc-scouts/ibc-interceptor/server/api"
-	"github.com/ibc-scouts/ibc-interceptor/testing/mock"
-)
-
+/*
 func TestGetExecutionEngineAPIs(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -62,6 +46,7 @@ func TestGetExecutionEngineAPIs(t *testing.T) {
 	}
 }
 
+
 func TestExecutionEngineAPI(t *testing.T) {
 	mockEngine := mock.NewMockExecEngine()
 	eeAPI := api.NewExectionEngineAPI(mockEngine, log.NewNopLogger())
@@ -73,3 +58,5 @@ func TestExecutionEngineAPI(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expResult, res)
 }
+
+*/

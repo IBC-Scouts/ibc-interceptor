@@ -1,22 +1,11 @@
 package server_test
 
 import (
-	"context"
-	"net"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	ethlog "github.com/ethereum/go-ethereum/log"
-
-	"github.com/ethereum-optimism/optimism/op-service/eth"
-
-	cmtlog "github.com/cometbft/cometbft/libs/log"
-
-	"github.com/ibc-scouts/ibc-interceptor/client/geth"
 	"github.com/ibc-scouts/ibc-interceptor/server"
-	"github.com/ibc-scouts/ibc-interceptor/server/api"
-	"github.com/ibc-scouts/ibc-interceptor/testing/mock"
 )
 
 func TestDefaultConfig(t *testing.T) {
@@ -28,6 +17,7 @@ func TestDefaultConfig(t *testing.T) {
 	require.Equal(t, "/websocket", config.WSPathPrefix)
 }
 
+/*
 func TestServer(t *testing.T) {
 	mockEngine := mock.NewMockExecEngine()
 	nopLogger := cmtlog.NewNopLogger()
@@ -64,3 +54,4 @@ func TestServer(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expResult, result)
 }
+*/

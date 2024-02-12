@@ -15,10 +15,15 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 )
 
+type GethWrappedClient struct {
+	*sources.EngineClient
+	Client client.RPC
+}
+
 // NewGethEngineClient creates a new geth EngineClient
 //
 // This is an implementation of the derive.Engine interface using a geth client.
-func NewGethEngineClient(gethEngineAddr string, gethAuthSecret []byte, logger log.Logger) (*sources.EngineClient, error) {
+func NewGethEngineClient(gethEngineAddr string, gethAuthSecret []byte, logger log.Logger) (*GethWrappedClient, error) {
 	// necessary setup args
 	ctx, m := context.TODO(), metrics.NewMetrics("")
 
@@ -54,5 +59,5 @@ func NewGethEngineClient(gethEngineAddr string, gethAuthSecret []byte, logger lo
 		return nil, fmt.Errorf("failed to create Engine client: %w", err)
 	}
 
-	return engineClient, nil
+	return &GethWrappedClient{engineClient, rpcClient}, nil
 }
