@@ -7,11 +7,12 @@ package api
 import (
 	"context"
 
-	"github.com/ethereum-optimism/optimism/op-service/client"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
+
+	"github.com/ethereum-optimism/optimism/op-service/client"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 
 	"github.com/cometbft/cometbft/libs/log"
 )
@@ -31,15 +32,15 @@ func newExecutionEngineAPI(engine client.RPC, logger log.Logger) *execEngineServ
 	return &execEngineServer{engine, logger}
 }
 
-func GetAPIs(client client.RPC, logger log.Logger) []rpc.API {
-	if client == nil {
+func GetAPIs(rpcClient client.RPC, logger log.Logger) []rpc.API {
+	if rpcClient == nil {
 		panic("execEngine is nil")
 	}
 	if logger == nil {
 		panic("logger is nil")
 	}
 
-	node := newExecutionEngineAPI(client, logger)
+	node := newExecutionEngineAPI(rpcClient, logger)
 	apis := []rpc.API{
 		{
 			Namespace: "engine",
@@ -166,7 +167,7 @@ func (e *execEngineServer) NewPayloadV3(payload *eth.ExecutionPayload) (*eth.Pay
 
 /* 'eth_' prefixed server methods, only required ones. */
 
-func (e *execEngineServer) ChainId() (hexutil.Big, error) {
+func (e *execEngineServer) ChainId() (hexutil.Big, error) { // nolint: revive, stylecheck
 	e.logger.Info("trying: ChainID")
 
 	var id hexutil.Big

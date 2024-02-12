@@ -2,6 +2,7 @@ package node
 
 import (
 	"github.com/ethereum-optimism/optimism/op-service/client"
+
 	"github.com/ibc-scouts/ibc-interceptor/client/geth"
 	"github.com/ibc-scouts/ibc-interceptor/server"
 	"github.com/ibc-scouts/ibc-interceptor/server/api"
