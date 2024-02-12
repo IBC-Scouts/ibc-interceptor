@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ibc-scouts/ibc-interceptor/client/geth"
@@ -114,15 +115,15 @@ func (e *execEngineAPI) GetPayloadV1(payloadID eth.PayloadID) (*eth.ExecutionPay
 	return result.ExecutionPayload, err
 }
 
-func (e *execEngineAPI) GetPayloadV2(payloadID eth.PayloadID) (*eth.ExecutionPayload, error) {
+func (e *execEngineAPI) GetPayloadV2(payloadID eth.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
 	e.logger.Info("GetPayloadV2", "payload_id", payloadID)
 
 	var result eth.ExecutionPayloadEnvelope
 	err := e.gethClient.Client.CallContext(context.TODO(), &result, "engine_getPayloadV2", payloadID)
 
-	e.logger.Info("completed: GetPayloadV2", "error", err, "result", &result)
+	e.logger.Info("completed: GetPayloadV2", "error", err, "result", result.ExecutionPayload)
 
-	return result.ExecutionPayload, err
+	return &result, err
 }
 
 func (e *execEngineAPI) GetPayloadV3(payloadID eth.PayloadID) (*eth.ExecutionPayload, error) {
@@ -138,7 +139,7 @@ func (e *execEngineAPI) GetPayloadV3(payloadID eth.PayloadID) (*eth.ExecutionPay
 	// return e.gethClient.GetPayload(context.TODO(), payloadID)
 }
 
-func (e *execEngineAPI) NewPayloadV1(payload eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
+func (e *execEngineAPI) NewPayloadV1(payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
 	e.logger.Info("trying: NewPayloadV2", "payload.ID", payload.ID(), "blockHash", payload.BlockHash.Hex())
 
 	var result eth.PayloadStatusV1
@@ -149,7 +150,7 @@ func (e *execEngineAPI) NewPayloadV1(payload eth.ExecutionPayload) (*eth.Payload
 	return &result, err
 }
 
-func (e *execEngineAPI) NewPayloadV2(payload eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
+func (e *execEngineAPI) NewPayloadV2(payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
 	e.logger.Info("trying: NewPayloadV2", "payload.ID", payload.ID(), "blockHash", payload.BlockHash.Hex())
 
 	var result eth.PayloadStatusV1
@@ -160,7 +161,7 @@ func (e *execEngineAPI) NewPayloadV2(payload eth.ExecutionPayload) (*eth.Payload
 	return &result, err
 }
 
-func (e *execEngineAPI) NewPayloadV3(payload eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
+func (e *execEngineAPI) NewPayloadV3(payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
 	e.logger.Info("trying: NewPayloadV3", "payload.ID", payload.ID(), "blockHash", payload.BlockHash.Hex())
 
 	var result eth.PayloadStatusV1
@@ -182,6 +183,27 @@ func (e *execEngineAPI) ChainId() (hexutil.Big, error) {
 	return id, err
 }
 
+func (e *execEngineAPI) GetBlockByHash(id any, something any) (map[string]any, error) {
+	e.logger.Info("trying: GetBlockByHash", "id", id)
+
+	var result map[string]any
+	err := e.gethClient.Client.CallContext(context.TODO(), &result, "eth_getBlockByHash", id, something)
+
+	e.logger.Info("completed: GetBlockByHash", "result", result)
+
+	return result, err
+}
+
+func (e *execEngineAPI) GetProof(ctx context.Context, address common.Address, storageKeys []string, blockNrOrHash rpc.BlockNumberOrHash) (map[string]any, error) {
+	e.logger.Info("trying: GetProof")
+
+	var result map[string]any
+	err := e.gethClient.Client.CallContext(context.TODO(), &result, "eth_getProof", address, storageKeys, blockNrOrHash)
+
+	e.logger.Info("completed: GetBlockByHash", "result", result)
+	return result, err
+}
+
 // TODO(jim): Change the name from 'something' :D (look up eth_getBlockByNumber in rpc docs)
 func (e *execEngineAPI) GetBlockByNumber(id any, something any) (map[string]any, error) {
 	e.logger.Info("trying: GetBlockByNumber", "id", id)
@@ -189,5 +211,15 @@ func (e *execEngineAPI) GetBlockByNumber(id any, something any) (map[string]any,
 	var result map[string]any
 	err := e.gethClient.Client.CallContext(context.TODO(), &result, "eth_getBlockByNumber", id, something)
 
+	return result, err
+}
+
+// GetTransactionReceipt returns the transaction receipt for the given transaction hash.
+func (e *execEngineAPI) GetTransactionReceipt(ctx context.Context, txHash common.Hash) (map[string]any, error) {
+	e.logger.Info("trying: GetTransactionReceipt")
+	var result map[string]any
+	err := e.gethClient.Client.CallContext(ctx, &result, "eth_getTransactionReceipt", txHash)
+
+	e.logger.Info("completed: GetTransactionReceipt", "error", err, "result", result)
 	return result, err
 }
