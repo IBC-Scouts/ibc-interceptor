@@ -62,9 +62,11 @@ func (e *execEngineAPI) ForkchoiceUpdatedV1(
 	ctx := context.TODO()
 
 	var result eth.ForkchoiceUpdatedResult
-	e.gethClient.Client.CallContext(ctx, &result, "engine_forkchoiceUpdatedV1", fcs, pa)
+	err := e.gethClient.Client.CallContext(ctx, &result, "engine_forkchoiceUpdatedV1", fcs, pa)
 
-	return &result, nil
+	e.logger.Info("completed: ForkchoiceUpdatedV1", "error", err, "result", &result)
+
+	return &result, err
 }
 
 func (e *execEngineAPI) ForkchoiceUpdatedV2(
@@ -76,9 +78,11 @@ func (e *execEngineAPI) ForkchoiceUpdatedV2(
 	ctx := context.TODO()
 
 	var result eth.ForkchoiceUpdatedResult
-	e.gethClient.Client.CallContext(ctx, &result, "engine_forkchoiceUpdatedV2", fcs, pa)
+	err := e.gethClient.Client.CallContext(ctx, &result, "engine_forkchoiceUpdatedV2", fcs, pa)
 
-	return &result, nil
+	e.logger.Info("completed: ForkchoiceUpdatedV2", "error", err, "result", &result)
+
+	return &result, err
 }
 
 func (e *execEngineAPI) ForkchoiceUpdatedV3(
@@ -90,9 +94,11 @@ func (e *execEngineAPI) ForkchoiceUpdatedV3(
 	ctx := context.TODO()
 
 	var result eth.ForkchoiceUpdatedResult
-	e.gethClient.Client.CallContext(ctx, &result, "engine_forkchoiceUpdatedV3", fcs, pa)
+	err := e.gethClient.Client.CallContext(ctx, &result, "engine_forkchoiceUpdatedV3", fcs, pa)
 
-	return &result, nil
+	e.logger.Info("completed: ForkchoiceUpdatedV3", "error", err, "result", &result)
+
+	return &result, err
 
 	// return e.gethClient.ForkchoiceUpdate(ctx, &fcs, &pa)
 }
@@ -100,28 +106,34 @@ func (e *execEngineAPI) ForkchoiceUpdatedV3(
 func (e *execEngineAPI) GetPayloadV1(payloadID eth.PayloadID) (*eth.ExecutionPayload, error) {
 	e.logger.Info("GetPayloadV1", "payload_id", payloadID)
 
-	var result eth.ExecutionPayload
+	var result eth.ExecutionPayloadEnvelope
 	err := e.gethClient.Client.CallContext(context.TODO(), &result, "engine_getPayloadV1", payloadID)
 
-	return &result, err
+	e.logger.Info("completed: GetPayloadV1", "error", err, "result", &result)
+
+	return result.ExecutionPayload, err
 }
 
 func (e *execEngineAPI) GetPayloadV2(payloadID eth.PayloadID) (*eth.ExecutionPayload, error) {
 	e.logger.Info("GetPayloadV2", "payload_id", payloadID)
 
-	var result eth.ExecutionPayload
+	var result eth.ExecutionPayloadEnvelope
 	err := e.gethClient.Client.CallContext(context.TODO(), &result, "engine_getPayloadV2", payloadID)
 
-	return &result, err
+	e.logger.Info("completed: GetPayloadV2", "error", err, "result", &result)
+
+	return result.ExecutionPayload, err
 }
 
 func (e *execEngineAPI) GetPayloadV3(payloadID eth.PayloadID) (*eth.ExecutionPayload, error) {
 	e.logger.Info("GetPayloadV3", "payload_id", payloadID)
 
-	var result eth.ExecutionPayload
+	var result eth.ExecutionPayloadEnvelope
 	err := e.gethClient.Client.CallContext(context.TODO(), &result, "engine_getPayloadV3", payloadID)
 
-	return &result, err
+	e.logger.Info("completed: GetPayloadV3", "error", err, "result", &result)
+
+	return result.ExecutionPayload, err
 
 	// return e.gethClient.GetPayload(context.TODO(), payloadID)
 }
@@ -132,6 +144,8 @@ func (e *execEngineAPI) NewPayloadV1(payload eth.ExecutionPayload) (*eth.Payload
 	var result eth.PayloadStatusV1
 	err := e.gethClient.Client.CallContext(context.TODO(), &result, "engine_newPayloadV1", payload)
 
+	e.logger.Info("completed: NewPayloadV1", "error", err, "result", &result)
+
 	return &result, err
 }
 
@@ -141,6 +155,8 @@ func (e *execEngineAPI) NewPayloadV2(payload eth.ExecutionPayload) (*eth.Payload
 	var result eth.PayloadStatusV1
 	err := e.gethClient.Client.CallContext(context.TODO(), &result, "engine_newPayloadV2", payload)
 
+	e.logger.Info("completed: NewPayloadV2", "error", err, "result", &result)
+
 	return &result, err
 }
 
@@ -149,6 +165,8 @@ func (e *execEngineAPI) NewPayloadV3(payload eth.ExecutionPayload) (*eth.Payload
 
 	var result eth.PayloadStatusV1
 	err := e.gethClient.Client.CallContext(context.TODO(), &result, "engine_newPayloadV3", payload)
+
+	e.logger.Info("completed: NewPayloadV3", "error", err, "result", &result)
 
 	return &result, err
 
