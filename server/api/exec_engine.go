@@ -72,7 +72,7 @@ func (e *execEngineAPI) ForkchoiceUpdatedV1(
 
 func (e *execEngineAPI) ForkchoiceUpdatedV2(
 	fcs eth.ForkchoiceState,
-	pa eth.PayloadAttributes,
+	pa *eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
 	e.logger.Info("trying: ForkchoiceUpdatedV2", "fcs", fcs, "pa", pa)
 	// TODO: may add timeout to the context or if anything else is needed
@@ -81,7 +81,7 @@ func (e *execEngineAPI) ForkchoiceUpdatedV2(
 	var result eth.ForkchoiceUpdatedResult
 	err := e.gethClient.Client.CallContext(ctx, &result, "engine_forkchoiceUpdatedV2", fcs, pa)
 
-	e.logger.Info("completed: ForkchoiceUpdatedV2", "error", err, "result", &result)
+	e.logger.Info("completed: ForkchoiceUpdatedV2", "error", err, "result", result)
 
 	return &result, err
 }
