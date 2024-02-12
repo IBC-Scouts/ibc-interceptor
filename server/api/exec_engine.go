@@ -59,11 +59,9 @@ func (e *execEngineAPI) ForkchoiceUpdatedV1(
 	pa eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
 	e.logger.Info("trying: ForkchoiceUpdatedV1, forwarding to geth", "fcs", fcs, "pa", pa)
-	// TODO: may add timeout to the context or if anything else is needed
-	ctx := context.TODO()
 
 	var result eth.ForkchoiceUpdatedResult
-	err := e.gethClient.Client.CallContext(ctx, &result, "engine_forkchoiceUpdatedV1", fcs, pa)
+	err := e.gethClient.Client.CallContext(context.TODO(), &result, "engine_forkchoiceUpdatedV1", fcs, pa)
 
 	e.logger.Info("completed: ForkchoiceUpdatedV1", "error", err, "result", &result)
 
@@ -75,11 +73,9 @@ func (e *execEngineAPI) ForkchoiceUpdatedV2(
 	pa *eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
 	e.logger.Info("trying: ForkchoiceUpdatedV2", "fcs", fcs, "pa", pa)
-	// TODO: may add timeout to the context or if anything else is needed
-	ctx := context.TODO()
 
 	var result eth.ForkchoiceUpdatedResult
-	err := e.gethClient.Client.CallContext(ctx, &result, "engine_forkchoiceUpdatedV2", fcs, pa)
+	err := e.gethClient.Client.CallContext(context.TODO(), &result, "engine_forkchoiceUpdatedV2", fcs, pa)
 
 	e.logger.Info("completed: ForkchoiceUpdatedV2", "error", err, "result", result)
 
@@ -91,17 +87,13 @@ func (e *execEngineAPI) ForkchoiceUpdatedV3(
 	pa eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
 	e.logger.Info("trying: ForkchoiceUpdatedV3", "fcs", fcs, "pa", pa)
-	// TODO: may add timeout to the context or if anything else is needed
-	ctx := context.TODO()
 
 	var result eth.ForkchoiceUpdatedResult
-	err := e.gethClient.Client.CallContext(ctx, &result, "engine_forkchoiceUpdatedV3", fcs, pa)
+	err := e.gethClient.Client.CallContext(context.TODO(), &result, "engine_forkchoiceUpdatedV3", fcs, pa)
 
 	e.logger.Info("completed: ForkchoiceUpdatedV3", "error", err, "result", &result)
 
 	return &result, err
-
-	// return e.gethClient.ForkchoiceUpdate(ctx, &fcs, &pa)
 }
 
 func (e *execEngineAPI) GetPayloadV1(payloadID eth.PayloadID) (*eth.ExecutionPayload, error) {
@@ -135,8 +127,6 @@ func (e *execEngineAPI) GetPayloadV3(payloadID eth.PayloadID) (*eth.ExecutionPay
 	e.logger.Info("completed: GetPayloadV3", "error", err, "result", &result)
 
 	return result.ExecutionPayload, err
-
-	// return e.gethClient.GetPayload(context.TODO(), payloadID)
 }
 
 func (e *execEngineAPI) NewPayloadV1(payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
@@ -183,6 +173,17 @@ func (e *execEngineAPI) ChainId() (hexutil.Big, error) {
 	return id, err
 }
 
+// TODO(jim): Change the name from 'something' :D (look up eth_getBlockByNumber in rpc docs)
+func (e *execEngineAPI) GetBlockByNumber(id any, something any) (map[string]any, error) {
+	e.logger.Info("trying: GetBlockByNumber", "id", id)
+
+	var result map[string]any
+	err := e.gethClient.Client.CallContext(context.TODO(), &result, "eth_getBlockByNumber", id, something)
+
+	return result, err
+}
+
+// Added for completeness -- tests do not appear to invoke for time being.
 func (e *execEngineAPI) GetBlockByHash(id any, something any) (map[string]any, error) {
 	e.logger.Info("trying: GetBlockByHash", "id", id)
 
@@ -194,7 +195,8 @@ func (e *execEngineAPI) GetBlockByHash(id any, something any) (map[string]any, e
 	return result, err
 }
 
-func (e *execEngineAPI) GetProof(ctx context.Context, address common.Address, storageKeys []string, blockNrOrHash rpc.BlockNumberOrHash) (map[string]any, error) {
+// Added for completeness -- tests do not appear to invoke for time being.
+func (e *execEngineAPI) GetProof(address common.Address, storageKeys []string, blockNrOrHash rpc.BlockNumberOrHash) (map[string]any, error) {
 	e.logger.Info("trying: GetProof")
 
 	var result map[string]any
@@ -204,21 +206,12 @@ func (e *execEngineAPI) GetProof(ctx context.Context, address common.Address, st
 	return result, err
 }
 
-// TODO(jim): Change the name from 'something' :D (look up eth_getBlockByNumber in rpc docs)
-func (e *execEngineAPI) GetBlockByNumber(id any, something any) (map[string]any, error) {
-	e.logger.Info("trying: GetBlockByNumber", "id", id)
-
-	var result map[string]any
-	err := e.gethClient.Client.CallContext(context.TODO(), &result, "eth_getBlockByNumber", id, something)
-
-	return result, err
-}
-
+// Added for completeness -- tests do not appear to invoke for time being.
 // GetTransactionReceipt returns the transaction receipt for the given transaction hash.
-func (e *execEngineAPI) GetTransactionReceipt(ctx context.Context, txHash common.Hash) (map[string]any, error) {
+func (e *execEngineAPI) GetTransactionReceipt(txHash common.Hash) (map[string]any, error) {
 	e.logger.Info("trying: GetTransactionReceipt")
 	var result map[string]any
-	err := e.gethClient.Client.CallContext(ctx, &result, "eth_getTransactionReceipt", txHash)
+	err := e.gethClient.Client.CallContext(context.TODO(), &result, "eth_getTransactionReceipt", txHash)
 
 	e.logger.Info("completed: GetTransactionReceipt", "error", err, "result", result)
 	return result, err
