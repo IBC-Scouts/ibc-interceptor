@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/ibc-scouts/ibc-interceptor/client/geth"
+	"github.com/ethereum-optimism/optimism/op-service/client"
 
 	"github.com/cometbft/cometbft/libs/log"
 )
@@ -13,6 +13,6 @@ import (
 // NewExectionEngineAPI is a wrapper around newExecutionEngineAPI that allows for testing.
 //
 //nolint:revive
-func NewExectionEngineAPI(engine *geth.GethWrappedClient, logger log.Logger) *execEngineAPI {
-	return newExecutionEngineAPI(engine, logger)
+func NewExectionEngineAPI(client client.RPC, logger log.Logger) *execEngineServer {
+	return newExecutionEngineAPI(client, logger)
 }
