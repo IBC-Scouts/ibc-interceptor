@@ -1,0 +1,47 @@
+# clones IBC-Scouts/optimism, checks out the poc-develop branch, builds
+# the ibc-interceptor binary and runs op-e2e tests.
+name: Run op-e2e tests
+on:
+  workflow_dispatch:
+# Disable these temporarily
+#  push:
+#    branches: [main]
+#  pull_request:
+#    paths:
+#      - '**.go'
+    
+jobs:
+  clone-op-stack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+
+      - uses: actions/checkout@master
+        with:
+          name: IBC-Scouts/IBC-Interceptor
+
+      # Check out branch on IBC-Scouts/optimism
+      - uses: actions/checkout@master
+        with:
+          name: IBC-Scouts/optimism
+          ref: poc-develop
+
+      # Build ibc-interceptor
+      - name: Build ibc-interceptor
+        run: make build
+
+      # Copy interceptor to optimism/op-e2e (will this work? :D)
+      - name: Copy ibc-interceptor to optimism/op-e2e
+        run: cp bin/interceptor optimism/op-e2e
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      # Run interceptor (should fail now)
+      - name: Run op-e2e tests
+        run: 
+            cd optimism/op-e2e
+            go test -v -run TestDepositTxCreateContract ./...
