@@ -11,7 +11,7 @@ on:
 #      - '**.go'
     
 jobs:
-  clone-op-stack:
+  op-e2e:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-go@v4
@@ -19,29 +19,46 @@ jobs:
           go-version: "1.21"
 
       - uses: actions/checkout@master
-        with:
-          name: IBC-Scouts/IBC-Interceptor
+      - name: Check out repo and build ibc-interceptor
+        run: |
+          make build-interceptor
+          git clone https://github.com/IBC-Scouts/optimism.git
+          cd optimism
+          git checkout poc-develop
 
-      # Check out branch on IBC-Scouts/optimism
-      - uses: actions/checkout@master
-        with:
-          name: IBC-Scouts/optimism
-          ref: poc-develop
-
-      # Build ibc-interceptor
-      - name: Build ibc-interceptor
-        run: make build
-
-      # Copy interceptor to optimism/op-e2e (will this work? :D)
       - name: Copy ibc-interceptor to optimism/op-e2e
-        run: cp bin/interceptor optimism/op-e2e
+        run: cp build/interceptor optimism/op-e2e
 
+      # Required for op build.
       - uses: pnpm/action-setup@v3
         with:
           version: 8
 
-      # Run interceptor (should fail now)
+      # Directly install based on .nvmrc
+      - uses: actions/setup-node@v4.0.2
+        with:
+          node-version: 20.9.0
+
+      - name: Install Foundry
+        run: |
+            curl -L https://foundry.paradigm.xyz | bash
+
+      # Sourcing the bashrc and executing foundryup didn't work. No clue why but wont spend time on it.
+      # Use commit in .foundryrc file.
+      - name: Run foundryup
+        run: |
+          /home/runner/.config/.foundry/bin/foundryup --commit 53b15e6cee787a7765988bb7228f26f62eb78129
+
+      - name: Build optimism devnet
+        run: |
+            export PATH=$PATH:/home/runner/.config/.foundry/bin
+            pnpm i && pnpm build
+            make install-geth
+            make cannon-prestate
+            make devnet-allocs
+        working-directory: optimism/
+
       - name: Run op-e2e tests
-        run: 
-            cd optimism/op-e2e
+        run: |
             go test -v -run TestDepositTxCreateContract ./...
+        working-directory: optimism/op-e2e
