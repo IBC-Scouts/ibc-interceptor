@@ -2,7 +2,9 @@
 // while directly calling the cosmos sdk engine. See https://ethereum.github.io/execution-apis/api-documentation/
 package api
 
-// TODO(jim): Document the methods with at least the info in the api-documentation link above.
+// TODO(jim):
+// - Document the methods with at least the info in the api-documentation link above.
+// - A generic function can be added that just forwards calls in all the wrapping methods.
 
 import (
 	"context"
@@ -48,6 +50,10 @@ func GetAPIs(rpcClient client.RPC, logger log.Logger) []rpc.API {
 		},
 		{
 			Namespace: "eth",
+			Service:   node,
+		},
+		{
+			Namespace: "cosmos",
 			Service:   node,
 		},
 	}
@@ -220,4 +226,18 @@ func (e *execEngineServer) GetTransactionReceipt(txHash common.Hash) (map[string
 
 	e.logger.Info("completed: GetTransactionReceipt", "error", err, "result", result)
 	return result, err
+}
+
+/* 'cosmos_' Namespace server methods:
+
+Basically for any information we might want to send over from our e2es. */
+
+// SendCosmosTx receives an opaque tx byte slice and adds it to the mempool.
+func (e *execEngineServer) SendTransaction(tx []byte) (SendCosmosTxResult, error) {
+	e.logger.Info("trying: SendTransaction", "tx", tx)
+
+	// TODO(jim): Add it to our dummy mempool.
+
+	e.logger.Info("completed: SendTransaction")
+	return SendCosmosTxResult{}, nil
 }
