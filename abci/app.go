@@ -160,11 +160,9 @@ var (
 	}
 )
 
-var (
-	// TODO(jim): Implement interface
-	// _ runtime.AppI            = (*SimApp)(nil)
-	_ servertypes.Application = (*SimApp)(nil)
-)
+// TODO(jim): Implement interface
+// var _ runtime.AppI            = (*SimApp)(nil)
+var _ servertypes.Application = (*SimApp)(nil)
 
 // SimApp extends an ABCI application, but with most of its parameters exported.
 // They are exported for convenience in creating helper functions, as object
