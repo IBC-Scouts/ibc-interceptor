@@ -152,10 +152,6 @@ func startCmd() *cobra.Command {
 				return err
 			}
 
-			if configFilePath == "" {
-				configFilePath = types.DefaultConfigFilePath
-			}
-
 			config, err := types.ConfigFromFilePath(configFilePath)
 			if err != nil {
 				return err
@@ -169,6 +165,9 @@ func startCmd() *cobra.Command {
 				config.GethEngineAddr = gethEngineAddr
 			}
 
+			// TODO: create our simapp and init chain and commit!
+			// https://github.com/cosmos/ibc-go/blob/main/testing/simapp/test_helpers.go#L83
+			// https://github.com/cosmos/ibc-go/blob/main/testing/chain.go#L162
 			node := node.NewInterceptorNode(config)
 			if err := node.Start(); err != nil {
 				return err
@@ -266,7 +265,7 @@ func startCmd() *cobra.Command {
 	}
 
 	cmd.Flags().String("geth-engine-addr", "", "RPC address of geth execution engine")
-	cmd.Flags().String("config", "", "Path to the interceptor config file")
+	cmd.Flags().String("config", types.DefaultConfigFilePath, "Path to the interceptor config file")
 
 	return cmd
 }
