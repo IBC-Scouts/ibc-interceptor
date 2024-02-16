@@ -26,7 +26,7 @@ type (
 )
 
 type Node interface {
-	LastBlockHeight() int64
+	LastBlockHeight() int64 // DONE
 	// SavePayload saves the payload by its ID if it's not already in payload cache.
 	// Also update the latest Payload if this is a new payload
 	SavePayload(payload *eetypes.Payload)
@@ -35,13 +35,11 @@ type Node interface {
 	// The latest unsafe block hash
 	//
 	// The latest unsafe block refers to sealed blocks, not the one that's being built on
-	HeadBlockHash() Hash
+	HeadBlockHash() Hash // DONE
 	CommitBlock() error
-	// GetETH returns the wrapped ETH balance in Wei of the given EVM address.
-	GetETH(address common.Address, height int64) (*big.Int, error)
-	GetChainID() string
+	GetChainID() string // DONE
 
-	GetBlock(id any) (*Block, error)
+	GetBlock(id any) (*Block, error) // DONE
 	UpdateLabel(label eth.BlockLabel, hash Hash) error
 
 	Rollback(head, safe, finalized *Block) error
@@ -315,26 +313,6 @@ func (e *ethLikeServer) ChainId() hexutil.Big {
 		panic("chain id is not numerical")
 	}
 	return (hexutil.Big)(*chainID)
-}
-
-// GetBalance returns wrapped Ethers balance on L2 chain
-// - address: EVM address
-// - blockNumber: a valid BlockLabel or hex encoded big.Int; default to latest/unsafe block
-func (e *ethLikeServer) GetBalance(address common.Address, id any) (hexutil.Big, error) {
-	e.logger.Debug("GetBalance", "address", address, "id", id)
-	telemetry.IncrCounter(1, "query", "GetBalance")
-
-	b, err := e.node.GetBlock(id)
-	if err != nil {
-		return hexutil.Big{}, err
-	}
-
-	balance, err := e.node.GetETH(address, b.Height())
-	if err != nil {
-		err = fmt.Errorf("failed to get balance for address %s at block height %d, %w", address, b.Height(), err)
-		return hexutil.Big{}, err
-	}
-	return (hexutil.Big)(*balance), nil
 }
 
 func (e *ethLikeServer) GetBlockByHash(hash Hash, inclTx bool) (map[string]any, error) {
