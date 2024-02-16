@@ -19,21 +19,6 @@ import (
 	"github.com/cometbft/cometbft/libs/log"
 )
 
-// execEngineServer is the API for the execution engine.
-// Implements most of the 'engine_' methods and the currently (guided by op-e2e tests)
-// required 'eth_' prefixed methods.
-type execEngineServer struct {
-	// client dials into op-geth server.
-	// Might be best to not embed if we maybe want to add an sdk engine via rpc.
-	client.RPC
-	logger log.Logger
-}
-
-// newExecutionEngineAPI returns a new execEngineAPI.
-func newExecutionEngineAPI(engine client.RPC, logger log.Logger) *execEngineServer {
-	return &execEngineServer{engine, logger}
-}
-
 func GetAPIs(rpcClient client.RPC, logger log.Logger) []rpc.API {
 	if rpcClient == nil {
 		panic("execEngine is nil")
@@ -42,19 +27,18 @@ func GetAPIs(rpcClient client.RPC, logger log.Logger) []rpc.API {
 		panic("logger is nil")
 	}
 
-	node := newExecutionEngineAPI(rpcClient, logger)
 	apis := []rpc.API{
 		{
 			Namespace: "engine",
-			Service:   node,
+			Service:   newEngineAPI(rpcClient, logger),
 		},
 		{
 			Namespace: "eth",
-			Service:   node,
+			Service:   newEthAPI(rpcClient, logger),
 		},
 		{
 			Namespace: "cosmos",
-			Service:   node,
+			Service:   newCosmosAPI(logger),
 		},
 	}
 
@@ -63,7 +47,22 @@ func GetAPIs(rpcClient client.RPC, logger log.Logger) []rpc.API {
 
 /* 'engine_' prefixed server methods, only required ones. */
 
-func (e *execEngineServer) ForkchoiceUpdatedV1(
+// engineServer is the API for the execution engine.
+// Implements most of the 'engine_' methods and the currently (guided by op-e2e tests)
+// required 'eth_' prefixed methods.
+type engineServer struct {
+	// client dials into op-geth server.
+	// Might be best to not embed if we maybe want to add an sdk engine via rpc.
+	client.RPC
+	logger log.Logger
+}
+
+// newExecutionEngineAPI returns a new execEngineAPI.
+func newEngineAPI(engine client.RPC, logger log.Logger) *engineServer {
+	return &engineServer{engine, logger}
+}
+
+func (e *engineServer) ForkchoiceUpdatedV1(
 	fcs eth.ForkchoiceState,
 	pa eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
@@ -77,7 +76,7 @@ func (e *execEngineServer) ForkchoiceUpdatedV1(
 	return &result, err
 }
 
-func (e *execEngineServer) ForkchoiceUpdatedV2(
+func (e *engineServer) ForkchoiceUpdatedV2(
 	fcs eth.ForkchoiceState,
 	pa *eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
@@ -91,7 +90,7 @@ func (e *execEngineServer) ForkchoiceUpdatedV2(
 	return &result, err
 }
 
-func (e *execEngineServer) ForkchoiceUpdatedV3(
+func (e *engineServer) ForkchoiceUpdatedV3(
 	fcs eth.ForkchoiceState,
 	pa eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
@@ -105,7 +104,7 @@ func (e *execEngineServer) ForkchoiceUpdatedV3(
 	return &result, err
 }
 
-func (e *execEngineServer) GetPayloadV1(payloadID eth.PayloadID) (*eth.ExecutionPayload, error) {
+func (e *engineServer) GetPayloadV1(payloadID eth.PayloadID) (*eth.ExecutionPayload, error) {
 	e.logger.Info("GetPayloadV1", "payload_id", payloadID)
 
 	var result eth.ExecutionPayloadEnvelope
@@ -116,7 +115,7 @@ func (e *execEngineServer) GetPayloadV1(payloadID eth.PayloadID) (*eth.Execution
 	return result.ExecutionPayload, err
 }
 
-func (e *execEngineServer) GetPayloadV2(payloadID eth.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
+func (e *engineServer) GetPayloadV2(payloadID eth.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
 	e.logger.Info("GetPayloadV2", "payload_id", payloadID)
 
 	var result eth.ExecutionPayloadEnvelope
@@ -127,7 +126,7 @@ func (e *execEngineServer) GetPayloadV2(payloadID eth.PayloadID) (*eth.Execution
 	return &result, err
 }
 
-func (e *execEngineServer) GetPayloadV3(payloadID eth.PayloadID) (*eth.ExecutionPayload, error) {
+func (e *engineServer) GetPayloadV3(payloadID eth.PayloadID) (*eth.ExecutionPayload, error) {
 	e.logger.Info("GetPayloadV3", "payload_id", payloadID)
 
 	var result eth.ExecutionPayloadEnvelope
@@ -138,7 +137,7 @@ func (e *execEngineServer) GetPayloadV3(payloadID eth.PayloadID) (*eth.Execution
 	return result.ExecutionPayload, err
 }
 
-func (e *execEngineServer) NewPayloadV1(payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
+func (e *engineServer) NewPayloadV1(payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
 	e.logger.Info("trying: NewPayloadV2", "payload.ID", payload.ID(), "blockHash", payload.BlockHash.Hex())
 
 	var result eth.PayloadStatusV1
@@ -149,7 +148,7 @@ func (e *execEngineServer) NewPayloadV1(payload *eth.ExecutionPayload) (*eth.Pay
 	return &result, err
 }
 
-func (e *execEngineServer) NewPayloadV2(payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
+func (e *engineServer) NewPayloadV2(payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
 	e.logger.Info("trying: NewPayloadV2", "payload.ID", payload.ID(), "blockHash", payload.BlockHash.Hex())
 
 	var result eth.PayloadStatusV1
@@ -160,7 +159,7 @@ func (e *execEngineServer) NewPayloadV2(payload *eth.ExecutionPayload) (*eth.Pay
 	return &result, err
 }
 
-func (e *execEngineServer) NewPayloadV3(payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
+func (e *engineServer) NewPayloadV3(payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
 	e.logger.Info("trying: NewPayloadV3", "payload.ID", payload.ID(), "blockHash", payload.BlockHash.Hex())
 
 	var result eth.PayloadStatusV1
@@ -173,7 +172,21 @@ func (e *execEngineServer) NewPayloadV3(payload *eth.ExecutionPayload) (*eth.Pay
 
 /* 'eth_' prefixed server methods, only required ones. */
 
-func (e *execEngineServer) ChainId() (hexutil.Big, error) { // nolint: revive, stylecheck
+// ethServer is the API for the eth like server.
+// Implements required 'eth_' prefixed methods.
+type ethServer struct {
+	// client dials into op-geth server.
+	// Might be best to not embed if we maybe want to add an sdk engine via rpc.
+	client.RPC
+	logger log.Logger
+}
+
+// newEthAPI returns a new execEngineAPI.
+func newEthAPI(engine client.RPC, logger log.Logger) *ethServer {
+	return &ethServer{engine, logger}
+}
+
+func (e *ethServer) ChainId() (hexutil.Big, error) { // nolint: revive, stylecheck
 	e.logger.Info("trying: ChainID")
 
 	var id hexutil.Big
@@ -185,7 +198,7 @@ func (e *execEngineServer) ChainId() (hexutil.Big, error) { // nolint: revive, s
 // Docu yanked from go-eth for fullTx.
 //   - When fullTx is true all transactions in the block are returned, otherwise
 //     only the transaction hash is returned.
-func (e *execEngineServer) GetBlockByNumber(id any, fullTx bool) (map[string]any, error) {
+func (e *ethServer) GetBlockByNumber(id any, fullTx bool) (map[string]any, error) {
 	e.logger.Info("trying: GetBlockByNumber", "id", id)
 
 	var result map[string]any
@@ -195,7 +208,7 @@ func (e *execEngineServer) GetBlockByNumber(id any, fullTx bool) (map[string]any
 }
 
 // Added for completeness -- tests do not appear to invoke for time being.
-func (e *execEngineServer) GetBlockByHash(id any, fullTx bool) (map[string]any, error) {
+func (e *ethServer) GetBlockByHash(id any, fullTx bool) (map[string]any, error) {
 	e.logger.Info("trying: GetBlockByHash", "id", id)
 
 	var result map[string]any
@@ -207,7 +220,7 @@ func (e *execEngineServer) GetBlockByHash(id any, fullTx bool) (map[string]any, 
 }
 
 // Added for completeness -- tests do not appear to invoke for time being.
-func (e *execEngineServer) GetProof(address common.Address, storageKeys []string, blockNrOrHash rpc.BlockNumberOrHash) (map[string]any, error) {
+func (e *ethServer) GetProof(address common.Address, storageKeys []string, blockNrOrHash rpc.BlockNumberOrHash) (map[string]any, error) {
 	e.logger.Info("trying: GetProof")
 
 	var result map[string]any
@@ -219,7 +232,7 @@ func (e *execEngineServer) GetProof(address common.Address, storageKeys []string
 
 // Added for completeness -- tests do not appear to invoke for time being.
 // GetTransactionReceipt returns the transaction receipt for the given transaction hash.
-func (e *execEngineServer) GetTransactionReceipt(txHash common.Hash) (map[string]any, error) {
+func (e *ethServer) GetTransactionReceipt(txHash common.Hash) (map[string]any, error) {
 	e.logger.Info("trying: GetTransactionReceipt")
 	var result map[string]any
 	err := e.CallContext(context.TODO(), &result, "eth_getTransactionReceipt", txHash)
@@ -228,12 +241,22 @@ func (e *execEngineServer) GetTransactionReceipt(txHash common.Hash) (map[string
 	return result, err
 }
 
+// cosmosServer is the API for the underlying cosmos app.
+type cosmosServer struct {
+	logger log.Logger
+}
+
+// newCosmosAPI returns a new cosmosServer.
+func newCosmosAPI(logger log.Logger) *cosmosServer {
+	return &cosmosServer{logger}
+}
+
 /* 'cosmos_' Namespace server methods:
 
 Basically for any information we might want to send over from our e2es. */
 
 // SendCosmosTx receives an opaque tx byte slice and adds it to the mempool.
-func (e *execEngineServer) SendTransaction(tx []byte) (SendCosmosTxResult, error) {
+func (e *cosmosServer) SendTransaction(tx []byte) (SendCosmosTxResult, error) {
 	e.logger.Info("trying: SendTransaction", "tx", tx)
 
 	// TODO(jim): Add it to our dummy mempool.
