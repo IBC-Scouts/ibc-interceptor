@@ -89,7 +89,7 @@ type Block struct {
 
 var _ BlockData = (*Block)(nil)
 
-func BlockUnmarshaler(bytes []byte) (BlockData, error) {
+func UnmarshalBlock(bytes []byte) (BlockData, error) {
 	b := Block{}
 	if err := json.Unmarshal(bytes, &b); err != nil {
 		panic(err)

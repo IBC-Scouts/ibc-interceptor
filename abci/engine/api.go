@@ -37,8 +37,6 @@ type Node interface {
 	// The latest unsafe block refers to sealed blocks, not the one that's being built on
 	HeadBlockHash() Hash
 	CommitBlock() error
-	// GetETH returns the wrapped ETH balance in Wei of the given EVM address.
-	GetETH(address common.Address, height int64) (*big.Int, error)
 	GetChainID() string
 
 	GetBlock(id any) (*Block, error)
@@ -162,8 +160,10 @@ func (e *engineAPIserver) ForkchoiceUpdatedV3(
 	// update canonical block head
 	e.logger.Info("updating unsafe/latest block", "hash", fcs.SafeBlockHash, "height", headBlock.Height())
 
-	//nolint // TODO: handle error
-	e.node.UpdateLabel(eth.Unsafe, fcs.HeadBlockHash)
+	err = e.node.UpdateLabel(eth.Unsafe, fcs.HeadBlockHash)
+	if err != nil {
+		e.logger.Error("error updating unsafe block", "err", err)
+	}
 
 	if fcs.SafeBlockHash != eetypes.ZeroHash {
 		e.logger.Info("updating safe block", "hash", fcs.SafeBlockHash)
@@ -189,7 +189,6 @@ func (e *engineAPIserver) ForkchoiceUpdatedV3(
 		if err != nil {
 			return nil, engine.InvalidPayloadAttributes.With(err)
 		}
-		// TODO: handle error of SavePayload
 		e.node.SavePayload(payload)
 		e.logger.Info("engine reorg payload", "payload_id", payloadID, "payload_head_block_hash", fcs.HeadBlockHash, "store_head_block_hash", e.node.HeadBlockHash())
 		// TODO: use one method for both cases: payload.Valid()
@@ -315,26 +314,6 @@ func (e *ethLikeServer) ChainId() hexutil.Big {
 		panic("chain id is not numerical")
 	}
 	return (hexutil.Big)(*chainID)
-}
-
-// GetBalance returns wrapped Ethers balance on L2 chain
-// - address: EVM address
-// - blockNumber: a valid BlockLabel or hex encoded big.Int; default to latest/unsafe block
-func (e *ethLikeServer) GetBalance(address common.Address, id any) (hexutil.Big, error) {
-	e.logger.Debug("GetBalance", "address", address, "id", id)
-	telemetry.IncrCounter(1, "query", "GetBalance")
-
-	b, err := e.node.GetBlock(id)
-	if err != nil {
-		return hexutil.Big{}, err
-	}
-
-	balance, err := e.node.GetETH(address, b.Height())
-	if err != nil {
-		err = fmt.Errorf("failed to get balance for address %s at block height %d, %w", address, b.Height(), err)
-		return hexutil.Big{}, err
-	}
-	return (hexutil.Big)(*balance), nil
 }
 
 func (e *ethLikeServer) GetBlockByHash(hash Hash, inclTx bool) (map[string]any, error) {
