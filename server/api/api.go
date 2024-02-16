@@ -17,6 +17,8 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 
 	"github.com/cometbft/cometbft/libs/log"
+
+	"github.com/ibc-scouts/ibc-interceptor/server/types"
 )
 
 func GetAPIs(rpcClient client.RPC, logger log.Logger) []rpc.API {
@@ -47,6 +49,8 @@ func GetAPIs(rpcClient client.RPC, logger log.Logger) []rpc.API {
 
 /* 'engine_' prefixed server methods, only required ones. */
 
+var _ types.EngineServer = (*engineServer)(nil)
+
 // engineServer is the API for the execution engine.
 // Implements most of the 'engine_' methods and the currently (guided by op-e2e tests)
 // required 'eth_' prefixed methods.
@@ -64,7 +68,7 @@ func newEngineAPI(engine client.RPC, logger log.Logger) *engineServer {
 
 func (e *engineServer) ForkchoiceUpdatedV1(
 	fcs eth.ForkchoiceState,
-	pa eth.PayloadAttributes,
+	pa *eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
 	e.logger.Info("trying: ForkchoiceUpdatedV1, forwarding to geth", "fcs", fcs, "pa", pa)
 
@@ -92,7 +96,7 @@ func (e *engineServer) ForkchoiceUpdatedV2(
 
 func (e *engineServer) ForkchoiceUpdatedV3(
 	fcs eth.ForkchoiceState,
-	pa eth.PayloadAttributes,
+	pa *eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
 	e.logger.Info("trying: ForkchoiceUpdatedV3", "fcs", fcs, "pa", pa)
 
@@ -126,7 +130,7 @@ func (e *engineServer) GetPayloadV2(payloadID eth.PayloadID) (*eth.ExecutionPayl
 	return &result, err
 }
 
-func (e *engineServer) GetPayloadV3(payloadID eth.PayloadID) (*eth.ExecutionPayload, error) {
+func (e *engineServer) GetPayloadV3(payloadID eth.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
 	e.logger.Info("GetPayloadV3", "payload_id", payloadID)
 
 	var result eth.ExecutionPayloadEnvelope
@@ -134,7 +138,7 @@ func (e *engineServer) GetPayloadV3(payloadID eth.PayloadID) (*eth.ExecutionPayl
 
 	e.logger.Info("completed: GetPayloadV3", "error", err, "result", &result)
 
-	return result.ExecutionPayload, err
+	return &result, err
 }
 
 func (e *engineServer) NewPayloadV1(payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
