@@ -3,6 +3,7 @@ package node
 import (
 	"github.com/ethereum-optimism/optimism/op-service/client"
 
+	"github.com/ibc-scouts/ibc-interceptor/abci/engine"
 	"github.com/ibc-scouts/ibc-interceptor/client/geth"
 	"github.com/ibc-scouts/ibc-interceptor/server"
 	"github.com/ibc-scouts/ibc-interceptor/server/api"
@@ -11,7 +12,7 @@ import (
 
 type InterceptorNode struct {
 	eeServer *server.EERPCServer // RPC server for the Execution Engine
-	client   client.RPC          // Client for calling into op-geth RPC server.
+	ethRPC   client.RPC          // RPC client for the Ethereum node
 
 	logger types.CompositeLogger
 }
@@ -22,16 +23,21 @@ func NewInterceptorNode(config *types.Config) *InterceptorNode {
 		panic(err)
 	}
 
-	rpcClient, err := geth.NewRPCClient(config.GethEngineAddr, config.GethAuthSecret, logger.New("client", "op-geth"))
+	ethRPC, err := geth.NewRPCClient(config.GethEngineAddr, config.GethAuthSecret, logger.New("client", "op-geth"))
 	if err != nil {
 		panic(err)
 	}
 
 	rpcServerConfig := server.DefaultConfig(config.EngineServerAddr)
-	eeServer := server.NewEeRPCServer(rpcServerConfig, api.GetAPIs(rpcClient, logger.With("server", "exec_engine_api")), logger.With("server", "exec_engine_rpc"))
+
+	// TODO(jim): Init chain and pass it to the NewEngineServer
+	abciEngine := engine.NewEngineServer(nil, logger.With("server", "abci_engine"))
+
+	rpcAPIs := api.GetAPIs(ethRPC, abciEngine, logger.With("server", "exec_engine_api"))
+	eeServer := server.NewEeRPCServer(rpcServerConfig, rpcAPIs, logger.With("server", "exec_engine_rpc"))
 	return &InterceptorNode{
 		eeServer: eeServer,
-		client:   rpcClient,
+		ethRPC:   ethRPC,
 		logger:   logger,
 	}
 }
@@ -49,7 +55,7 @@ func (n *InterceptorNode) Stop() error {
 		return err
 	}
 
-	n.client.Close()
+	n.ethRPC.Close()
 
 	return nil
 }

@@ -18,6 +18,7 @@ import (
 	cmtlog "github.com/cometbft/cometbft/libs/log"
 
 	eetypes "github.com/ibc-scouts/ibc-interceptor/abci/types"
+	"github.com/ibc-scouts/ibc-interceptor/server/types"
 )
 
 type (
@@ -69,10 +70,17 @@ func GetExecutionEngineAPIs(node Node, logger cmtlog.Logger) []rpc.API {
 	return apis
 }
 
+var _ types.EngineServer = (*engineAPIserver)(nil)
+
 type engineAPIserver struct {
 	node   Node
 	logger cmtlog.Logger
 	lock   sync.RWMutex
+}
+
+// NewEngineServer creates a new EngineServer for the given Node
+func NewEngineServer(node Node, logger cmtlog.Logger) types.EngineServer {
+	return &engineAPIserver{node: node, logger: logger}
 }
 
 func (e *engineAPIserver) rollback(head *Block, safeHash, finalizedHash eetypes.Hash) error {
@@ -97,7 +105,7 @@ func (e *engineAPIserver) rollback(head *Block, safeHash, finalizedHash eetypes.
 
 func (e *engineAPIserver) ForkchoiceUpdatedV1(
 	fcs eth.ForkchoiceState,
-	pa eth.PayloadAttributes,
+	pa *eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
 	e.logger.Debug("trying: ForkchoiceUpdatedV1")
 	return e.ForkchoiceUpdatedV3(fcs, pa)
@@ -105,7 +113,7 @@ func (e *engineAPIserver) ForkchoiceUpdatedV1(
 
 func (e *engineAPIserver) ForkchoiceUpdatedV2(
 	fcs eth.ForkchoiceState,
-	pa eth.PayloadAttributes,
+	pa *eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
 	e.logger.Debug("trying: ForkchoiceUpdatedV2")
 	return e.ForkchoiceUpdatedV3(fcs, pa)
@@ -113,14 +121,14 @@ func (e *engineAPIserver) ForkchoiceUpdatedV2(
 
 func (e *engineAPIserver) ForkchoiceUpdatedV3(
 	fcs eth.ForkchoiceState,
-	pa eth.PayloadAttributes,
+	pa *eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
 	e.logger.Debug("trying: ForkchoiceUpdatedV3",
 		"appHeight", e.node.LastBlockHeight()+1,
 		"unsafe", fcs.HeadBlockHash.Hex(),
 		"safe", fcs.SafeBlockHash.Hex(),
 		"finalized", fcs.FinalizedBlockHash.Hex(),
-		"attr", eetypes.HasPayloadAttributes(&pa),
+		"attr", eetypes.HasPayloadAttributes(pa),
 	)
 	e.lock.Lock()
 	defer e.lock.Unlock()
@@ -184,7 +192,7 @@ func (e *engineAPIserver) ForkchoiceUpdatedV3(
 
 	// OpNode providing a new payload with reorg
 	if reorg {
-		payload := eetypes.NewPayload(&pa, fcs.HeadBlockHash, e.node.LastBlockHeight()+1)
+		payload := eetypes.NewPayload(pa, fcs.HeadBlockHash, e.node.LastBlockHeight()+1)
 		payloadID, err := payload.GetPayloadID()
 		if err != nil {
 			return nil, engine.InvalidPayloadAttributes.With(err)
@@ -196,9 +204,9 @@ func (e *engineAPIserver) ForkchoiceUpdatedV3(
 	}
 
 	// start new payload mode
-	if eetypes.HasPayloadAttributes(&pa) {
+	if eetypes.HasPayloadAttributes(pa) {
 		// TODO check for invalid txs in pa
-		payload := eetypes.NewPayload(&pa, fcs.HeadBlockHash, e.node.LastBlockHeight()+1)
+		payload := eetypes.NewPayload(pa, fcs.HeadBlockHash, e.node.LastBlockHeight()+1)
 		payloadID, err := payload.GetPayloadID()
 		if err != nil {
 			return nil, engine.InvalidPayloadAttributes.With(err)
@@ -214,9 +222,14 @@ func (e *engineAPIserver) ForkchoiceUpdatedV3(
 	return eetypes.ValidForkchoiceUpdateResult(&fcs.HeadBlockHash, nil), nil
 }
 
-func (e *engineAPIserver) GetPayloadV1(payloadID eetypes.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
+func (e *engineAPIserver) GetPayloadV1(payloadID eetypes.PayloadID) (*eth.ExecutionPayload, error) {
 	e.logger.Debug("GetPayloadV1", "payload_id", payloadID)
-	return e.GetPayloadV3(payloadID)
+	pe, err := e.GetPayloadV3(payloadID)
+	if err != nil {
+		return nil, err
+	}
+
+	return pe.ExecutionPayload, nil
 }
 
 func (e *engineAPIserver) GetPayloadV2(payloadID eetypes.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
@@ -260,17 +273,17 @@ func (e *engineAPIserver) GetPayloadV3(payloadID eetypes.PayloadID) (*eth.Execut
 	return payload.ToExecutionPayloadEnvelope(e.node.HeadBlockHash()), nil
 }
 
-func (e *engineAPIserver) NewPayloadV1(payload eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
+func (e *engineAPIserver) NewPayloadV1(payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
 	e.logger.Debug("trying: NewPayloadV1", "payload.ID", payload.ID(), "blockHash", payload.BlockHash.Hex(), "height", e.node.LastBlockHeight()+1)
 	return e.NewPayloadV3(payload)
 }
 
-func (e *engineAPIserver) NewPayloadV2(payload eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
+func (e *engineAPIserver) NewPayloadV2(payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
 	e.logger.Debug("trying: NewPayloadV2", "payload.ID", payload.ID(), "blockHash", payload.BlockHash.Hex(), "height", e.node.LastBlockHeight()+1)
 	return e.NewPayloadV3(payload)
 }
 
-func (e *engineAPIserver) NewPayloadV3(payload eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
+func (e *engineAPIserver) NewPayloadV3(payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
 	e.logger.Debug("trying: NewPayloadV3", "payload.ID", payload.ID(), "blockHash", payload.BlockHash.Hex(), "height", e.node.LastBlockHeight()+1)
 	e.lock.Lock()
 	defer e.lock.Unlock()

@@ -21,9 +21,12 @@ import (
 	"github.com/ibc-scouts/ibc-interceptor/server/types"
 )
 
-func GetAPIs(rpcClient client.RPC, logger log.Logger) []rpc.API {
-	if rpcClient == nil {
+func GetAPIs(ethPRC client.RPC, abciEngine types.EngineServer, logger log.Logger) []rpc.API {
+	if ethPRC == nil {
 		panic("execEngine is nil")
+	}
+	if abciEngine == nil {
+		panic("abciEngine is nil")
 	}
 	if logger == nil {
 		panic("logger is nil")
@@ -32,11 +35,11 @@ func GetAPIs(rpcClient client.RPC, logger log.Logger) []rpc.API {
 	apis := []rpc.API{
 		{
 			Namespace: "engine",
-			Service:   newEngineAPI(rpcClient, logger),
+			Service:   newEngineAPI(ethPRC, abciEngine, logger),
 		},
 		{
 			Namespace: "eth",
-			Service:   newEthAPI(rpcClient, logger),
+			Service:   newEthAPI(ethPRC, logger),
 		},
 		{
 			Namespace: "cosmos",
@@ -57,13 +60,15 @@ var _ types.EngineServer = (*engineServer)(nil)
 type engineServer struct {
 	// client dials into op-geth server.
 	// Might be best to not embed if we maybe want to add an sdk engine via rpc.
-	client.RPC
+	ethRPC     client.RPC
+	abciEngine types.EngineServer
+
 	logger log.Logger
 }
 
 // newExecutionEngineAPI returns a new execEngineAPI.
-func newEngineAPI(engine client.RPC, logger log.Logger) *engineServer {
-	return &engineServer{engine, logger}
+func newEngineAPI(ethRPC client.RPC, abciEngine types.EngineServer, logger log.Logger) *engineServer {
+	return &engineServer{ethRPC, abciEngine, logger}
 }
 
 func (e *engineServer) ForkchoiceUpdatedV1(
@@ -73,9 +78,19 @@ func (e *engineServer) ForkchoiceUpdatedV1(
 	e.logger.Info("trying: ForkchoiceUpdatedV1, forwarding to geth", "fcs", fcs, "pa", pa)
 
 	var result eth.ForkchoiceUpdatedResult
-	err := e.CallContext(context.TODO(), &result, "engine_forkchoiceUpdatedV1", fcs, pa)
+	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_forkchoiceUpdatedV1", fcs, pa)
 
-	e.logger.Info("completed: ForkchoiceUpdatedV1", "error", err, "result", &result)
+	e.logger.Info("completed: forwarding ForkchoiceUpdatedV1 to geth", "error", err, "result", &result)
+
+	// Forward to the abci engine.
+	e.logger.Info("forwarding ForkchoiceUpdatedV1 to abci engine")
+
+	_, err = e.abciEngine.ForkchoiceUpdatedV1(fcs, pa)
+	if err != nil {
+		e.logger.Error("failed to forward ForkchoiceUpdatedV1 to abci engine", "error", err)
+	} else {
+		e.logger.Info("completed: forwarding ForkchoiceUpdatedV1 to abci engine")
+	}
 
 	return &result, err
 }
@@ -87,9 +102,19 @@ func (e *engineServer) ForkchoiceUpdatedV2(
 	e.logger.Info("trying: ForkchoiceUpdatedV2", "fcs", fcs, "pa", pa)
 
 	var result eth.ForkchoiceUpdatedResult
-	err := e.CallContext(context.TODO(), &result, "engine_forkchoiceUpdatedV2", fcs, pa)
+	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_forkchoiceUpdatedV2", fcs, pa)
 
 	e.logger.Info("completed: ForkchoiceUpdatedV2", "error", err, "result", result)
+
+	// Forward to the abci engine.
+	e.logger.Info("forwarding ForkchoiceUpdatedV2 to abci engine")
+
+	_, err = e.abciEngine.ForkchoiceUpdatedV2(fcs, pa)
+	if err != nil {
+		e.logger.Error("failed to forward ForkchoiceUpdatedV2 to abci engine", "error", err)
+	} else {
+		e.logger.Info("completed: forwarding ForkchoiceUpdatedV2 to abci engine")
+	}
 
 	return &result, err
 }
@@ -101,20 +126,40 @@ func (e *engineServer) ForkchoiceUpdatedV3(
 	e.logger.Info("trying: ForkchoiceUpdatedV3", "fcs", fcs, "pa", pa)
 
 	var result eth.ForkchoiceUpdatedResult
-	err := e.CallContext(context.TODO(), &result, "engine_forkchoiceUpdatedV3", fcs, pa)
+	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_forkchoiceUpdatedV3", fcs, pa)
 
 	e.logger.Info("completed: ForkchoiceUpdatedV3", "error", err, "result", &result)
+
+	// Forward to the abci engine.
+	e.logger.Info("forwarding ForkchoiceUpdatedV3 to abci engine")
+
+	_, err = e.abciEngine.ForkchoiceUpdatedV3(fcs, pa)
+	if err != nil {
+		e.logger.Error("failed to forward ForkchoiceUpdatedV3 to abci engine", "error", err)
+	} else {
+		e.logger.Info("completed: forwarding ForkchoiceUpdatedV3 to abci engine")
+	}
 
 	return &result, err
 }
 
 func (e *engineServer) GetPayloadV1(payloadID eth.PayloadID) (*eth.ExecutionPayload, error) {
-	e.logger.Info("GetPayloadV1", "payload_id", payloadID)
+	e.logger.Info("trying: GetPayloadV1", "payload_id", payloadID)
 
 	var result eth.ExecutionPayloadEnvelope
-	err := e.CallContext(context.TODO(), &result, "engine_getPayloadV1", payloadID)
+	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_getPayloadV1", payloadID)
 
 	e.logger.Info("completed: GetPayloadV1", "error", err, "result", &result)
+
+	// Forward to the abci engine.
+	e.logger.Info("forwarding GetPayloadV1 to abci engine")
+
+	_, err = e.abciEngine.GetPayloadV1(payloadID)
+	if err != nil {
+		e.logger.Error("failed to forward GetPayloadV1 to abci engine", "error", err)
+	} else {
+		e.logger.Info("completed: forwarding GetPayloadV1 to abci engine")
+	}
 
 	return result.ExecutionPayload, err
 }
@@ -123,9 +168,19 @@ func (e *engineServer) GetPayloadV2(payloadID eth.PayloadID) (*eth.ExecutionPayl
 	e.logger.Info("GetPayloadV2", "payload_id", payloadID)
 
 	var result eth.ExecutionPayloadEnvelope
-	err := e.CallContext(context.TODO(), &result, "engine_getPayloadV2", payloadID)
+	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_getPayloadV2", payloadID)
 
 	e.logger.Info("completed: GetPayloadV2", "error", err, "result", result.ExecutionPayload)
+
+	// Forward to the abci engine.
+	e.logger.Info("forwarding GetPayloadV2 to abci engine")
+
+	_, err = e.abciEngine.GetPayloadV2(payloadID)
+	if err != nil {
+		e.logger.Error("failed to forward GetPayloadV2 to abci engine", "error", err)
+	} else {
+		e.logger.Info("completed: forwarding GetPayloadV2 to abci engine")
+	}
 
 	return &result, err
 }
@@ -134,9 +189,19 @@ func (e *engineServer) GetPayloadV3(payloadID eth.PayloadID) (*eth.ExecutionPayl
 	e.logger.Info("GetPayloadV3", "payload_id", payloadID)
 
 	var result eth.ExecutionPayloadEnvelope
-	err := e.CallContext(context.TODO(), &result, "engine_getPayloadV3", payloadID)
+	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_getPayloadV3", payloadID)
 
 	e.logger.Info("completed: GetPayloadV3", "error", err, "result", &result)
+
+	// Forward to the abci engine.
+	e.logger.Info("forwarding GetPayloadV3 to abci engine")
+
+	_, err = e.abciEngine.GetPayloadV3(payloadID)
+	if err != nil {
+		e.logger.Error("failed to forward GetPayloadV3 to abci engine", "error", err)
+	} else {
+		e.logger.Info("completed: forwarding GetPayloadV3 to abci engine")
+	}
 
 	return &result, err
 }
@@ -145,9 +210,19 @@ func (e *engineServer) NewPayloadV1(payload *eth.ExecutionPayload) (*eth.Payload
 	e.logger.Info("trying: NewPayloadV2", "payload.ID", payload.ID(), "blockHash", payload.BlockHash.Hex())
 
 	var result eth.PayloadStatusV1
-	err := e.CallContext(context.TODO(), &result, "engine_newPayloadV1", payload)
+	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_newPayloadV1", payload)
 
 	e.logger.Info("completed: NewPayloadV1", "error", err, "result", &result)
+
+	// Forward to the abci engine.
+	e.logger.Info("forwarding NewPayloadV1 to abci engine")
+
+	_, err = e.abciEngine.NewPayloadV1(payload)
+	if err != nil {
+		e.logger.Error("failed to forward NewPayloadV1 to abci engine", "error", err)
+	} else {
+		e.logger.Info("completed: forwarding NewPayloadV1 to abci engine")
+	}
 
 	return &result, err
 }
@@ -156,9 +231,19 @@ func (e *engineServer) NewPayloadV2(payload *eth.ExecutionPayload) (*eth.Payload
 	e.logger.Info("trying: NewPayloadV2", "payload.ID", payload.ID(), "blockHash", payload.BlockHash.Hex())
 
 	var result eth.PayloadStatusV1
-	err := e.CallContext(context.TODO(), &result, "engine_newPayloadV2", payload)
+	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_newPayloadV2", payload)
 
 	e.logger.Info("completed: NewPayloadV2", "error", err, "result", &result)
+
+	// Forward to the abci engine.
+	e.logger.Info("forwarding NewPayloadV2 to abci engine")
+
+	_, err = e.abciEngine.NewPayloadV2(payload)
+	if err != nil {
+		e.logger.Error("failed to forward NewPayloadV2 to abci engine", "error", err)
+	} else {
+		e.logger.Info("completed: forwarding NewPayloadV2 to abci engine")
+	}
 
 	return &result, err
 }
@@ -167,9 +252,19 @@ func (e *engineServer) NewPayloadV3(payload *eth.ExecutionPayload) (*eth.Payload
 	e.logger.Info("trying: NewPayloadV3", "payload.ID", payload.ID(), "blockHash", payload.BlockHash.Hex())
 
 	var result eth.PayloadStatusV1
-	err := e.CallContext(context.TODO(), &result, "engine_newPayloadV3", payload)
+	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_newPayloadV3", payload)
 
 	e.logger.Info("completed: NewPayloadV3", "error", err, "result", &result)
+
+	// Forward to the abci engine.
+	e.logger.Info("forwarding NewPayloadV3 to abci engine")
+
+	_, err = e.abciEngine.NewPayloadV3(payload)
+	if err != nil {
+		e.logger.Error("failed to forward NewPayloadV3 to abci engine", "error", err)
+	} else {
+		e.logger.Info("completed: forwarding NewPayloadV3 to abci engine")
+	}
 
 	return &result, err
 }
