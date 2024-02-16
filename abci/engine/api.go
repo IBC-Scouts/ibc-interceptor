@@ -26,7 +26,7 @@ type (
 )
 
 type Node interface {
-	LastBlockHeight() int64 // DONE
+	LastBlockHeight() int64
 	// SavePayload saves the payload by its ID if it's not already in payload cache.
 	// Also update the latest Payload if this is a new payload
 	SavePayload(payload *eetypes.Payload)
@@ -35,11 +35,11 @@ type Node interface {
 	// The latest unsafe block hash
 	//
 	// The latest unsafe block refers to sealed blocks, not the one that's being built on
-	HeadBlockHash() Hash // DONE
+	HeadBlockHash() Hash
 	CommitBlock() error
-	GetChainID() string // DONE
+	GetChainID() string
 
-	GetBlock(id any) (*Block, error) // DONE
+	GetBlock(id any) (*Block, error)
 	UpdateLabel(label eth.BlockLabel, hash Hash) error
 
 	Rollback(head, safe, finalized *Block) error
@@ -160,8 +160,10 @@ func (e *engineAPIserver) ForkchoiceUpdatedV3(
 	// update canonical block head
 	e.logger.Info("updating unsafe/latest block", "hash", fcs.SafeBlockHash, "height", headBlock.Height())
 
-	//nolint // TODO: handle error
-	e.node.UpdateLabel(eth.Unsafe, fcs.HeadBlockHash)
+	err = e.node.UpdateLabel(eth.Unsafe, fcs.HeadBlockHash)
+	if err != nil {
+		e.logger.Error("error updating unsafe block", "err", err)
+	}
 
 	if fcs.SafeBlockHash != eetypes.ZeroHash {
 		e.logger.Info("updating safe block", "hash", fcs.SafeBlockHash)
@@ -187,7 +189,6 @@ func (e *engineAPIserver) ForkchoiceUpdatedV3(
 		if err != nil {
 			return nil, engine.InvalidPayloadAttributes.With(err)
 		}
-		// TODO: handle error of SavePayload
 		e.node.SavePayload(payload)
 		e.logger.Info("engine reorg payload", "payload_id", payloadID, "payload_head_block_hash", fcs.HeadBlockHash, "store_head_block_hash", e.node.HeadBlockHash())
 		// TODO: use one method for both cases: payload.Valid()

@@ -7,14 +7,15 @@ import (
 	"sync"
 	"time"
 
-	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
-	tmtypes "github.com/cometbft/cometbft/types"
-	abcitypes "github.com/cometbft/cometbft/abci/types"
-	cmtlog "github.com/cometbft/cometbft/libs/log"
-	cmttypes "github.com/cometbft/cometbft/types"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
 	ethrpc "github.com/ethereum/go-ethereum/rpc"
+
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+
+	abcitypes "github.com/cometbft/cometbft/abci/types"
+	cmtlog "github.com/cometbft/cometbft/libs/log"
+	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	cmttypes "github.com/cometbft/cometbft/types"
 
 	"github.com/ibc-scouts/ibc-interceptor/abci/engine"
 	"github.com/ibc-scouts/ibc-interceptor/abci/types"
@@ -42,9 +43,9 @@ type OpApp struct {
 	bs          types.BlockStore
 	latestBlock *types.Block // latest mined block that may not be canonical
 
-	ValSet               *tmtypes.ValidatorSet
-	lastHeader           *tmproto.Header
-	currentHeader        *tmproto.Header
+	ValSet        *cmttypes.ValidatorSet
+	lastHeader    *tmproto.Header
+	currentHeader *tmproto.Header
 }
 
 // AddTxToMempool adds txs to the mempool.
@@ -148,6 +149,40 @@ func (oa *OpApp) CommitBlock() error {
 	return nil
 }
 
+// UpdateLabel implements the Node interface.
+func (oa *OpApp) UpdateLabel(label eth.BlockLabel, hash types.Hash) error {
+	oa.logger.Debug("trying: OpApp.UpdateLabel", "label", label, "hash", hash)
+	oa.lock.Lock()
+	defer oa.lock.Unlock()
+	oa.logger.Debug("OpApp.UpdateLabel", "label", label, "hash", hash)
+
+	return oa.bs.UpdateLabel(label, hash)
+}
+
+// SavePayload implements the Node interface.
+// It saves the payload by its ID if it's not already in payload cache.
+// Also update the latest Payload if this is a new payload
+//
+// payload must be valid
+func (oa *OpApp) SavePayload(payload *types.Payload) {
+	_ = oa.ps.Add(payload)
+}
+
+// GetPayload implements the Node interface.
+func (oa *OpApp) GetPayload(payloadID types.PayloadID) (*types.Payload, bool) {
+	return oa.ps.Get(payloadID)
+}
+
+// CurrentPayload implements the Node interface.
+func (oa *OpApp) CurrentPayload() *types.Payload {
+	return oa.ps.Current()
+}
+
+// Rollback implements the Node interface.
+func (*OpApp) Rollback(head, safe, finalized *types.Block) error {
+	return fmt.Errorf("rollback not implemented")
+}
+
 // commitBlockAndUpdateNodeInfo simulates committing current block and updates node info.
 //
 // Need to combine startBuildingBlock and CommitAndBeginNextBlock
@@ -166,7 +201,7 @@ func (oa *OpApp) commitBlockAndUpdateNodeInfo() {
 // Commit pending changes to chain state and start a new block.
 // Will error if there is no deliverState, eg. InitChain is not called before first block.
 func (oa *OpApp) CommitAndBeginNextBlock(timestamp eth.Uint64Quantity) {
-	oa.Commit()
+	_, _ = oa.Commit()
 	oa.OnCommit(timestamp)
 }
 
@@ -194,7 +229,7 @@ func (oa *OpApp) fillBlockWithL1Data(block *types.Block) *types.Block {
 }
 
 // applyL1Txs applies L1 txs to the block that's currently being built.
-func (oa *OpApp) applyL1Txs(block *types.Block) {
+func (*OpApp) applyL1Txs(block *types.Block) {
 	// TODO: we don't need to apply L1 txs in the proof-of-concept
 }
 
@@ -203,7 +238,7 @@ func (oa *OpApp) applyBlockL2Txs(block *types.Block) {
 	block.Txs = oa.txMempool
 	oa.txMempool = nil
 
-	oa.FinalizeBlock(&abcitypes.RequestFinalizeBlock{
+	_, _ = oa.FinalizeBlock(&abcitypes.RequestFinalizeBlock{
 		Height:             oa.LastBlockHeight() + 1,
 		Time:               time.Unix(int64(block.Header.Time), 0),
 		NextValidatorsHash: block.Header.NextValidatorsHash,
