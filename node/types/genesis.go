@@ -13,10 +13,10 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
-// OpGenesis is used in OpApp's genesis.
+// Genesis is used in OpApp's genesis.
 // It is a clone of PeptideGenesis,
 // https://github.com/polymerdao/monomer/blob/f57e4e014d24fb2538926efd5232c9dd383543cc/app/node/genesis.go#L15
-type OpGenesis struct {
+type Genesis struct {
 	GenesisTime   time.Time   `json:"genesis_time"`
 	GenesisBlock  eth.BlockID `json:"genesis_block"`
 	ChainID       string      `json:"chain_id"`
@@ -26,7 +26,7 @@ type OpGenesis struct {
 	// TODO: add missing stuff
 }
 
-func (p *OpGenesis) Validate() error {
+func (p *Genesis) Validate() error {
 	if p.GenesisBlock.Hash.Cmp(common.Hash{}) == 0 {
 		return fmt.Errorf("genesis block hash must not be empty")
 	}
@@ -56,7 +56,7 @@ func fileExists(filename string) bool {
 	return !info.IsDir()
 }
 
-func (p *OpGenesis) Save(homedir string, override bool) error {
+func (p *Genesis) Save(homedir string, override bool) error {
 	genFile := filepath.Join(homedir, "config", "genesis.json")
 	if err := os.MkdirAll(filepath.Dir(genFile), 0o700); err != nil {
 		return err
@@ -80,7 +80,7 @@ func (p *OpGenesis) Save(homedir string, override bool) error {
 	return nil
 }
 
-func OpGenesisFromFile(homedir string) (*OpGenesis, error) {
+func OpGenesisFromFile(homedir string) (*Genesis, error) {
 	genFile := filepath.Join(homedir, "config", "genesis.json")
 
 	bz, err := os.ReadFile(genFile)
@@ -88,7 +88,7 @@ func OpGenesisFromFile(homedir string) (*OpGenesis, error) {
 		return nil, fmt.Errorf("could not read genesis file: %w", err)
 	}
 
-	var genesis OpGenesis
+	var genesis Genesis
 	if err := json.Unmarshal(bz, &genesis); err != nil {
 		return nil, fmt.Errorf("could not unmarshal genesis file: %w", err)
 	}

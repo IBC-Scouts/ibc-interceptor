@@ -5,8 +5,11 @@ import (
 	"os/signal"
 	"syscall"
 
+	"cosmossdk.io/log"
+	db "github.com/cosmos/cosmos-db"
 	"github.com/spf13/cobra"
 
+	"github.com/ibc-scouts/ibc-interceptor/abci/app"
 	"github.com/ibc-scouts/ibc-interceptor/node"
 	"github.com/ibc-scouts/ibc-interceptor/types"
 )
@@ -43,7 +46,7 @@ func initCmd() *cobra.Command {
 			//
 			// create an in memory db backed app only to generate an initial genesis file
 			// // TODO(colin): uncomment when we use abci app
-			// app := app.New(config.ChainId, "", tmdb.NewMemDB(), logger)
+			_ = app.NewOpApp(":^)", "", db.NewMemDB(), log.NewLogger(cmd.OutOrStdout()))
 			//
 			// // TODO use these testing accounts for now until we add proper account management
 			// appState := app.SimpleGenesis(peptest.Accounts, peptest.ValidatorAccounts)
@@ -168,7 +171,10 @@ func startCmd() *cobra.Command {
 			// TODO: create our simapp and init chain and commit!
 			// https://github.com/cosmos/ibc-go/blob/main/testing/simapp/test_helpers.go#L83
 			// https://github.com/cosmos/ibc-go/blob/main/testing/chain.go#L162
-			node := node.NewInterceptorNode(config)
+			opApp := app.NewOpApp("", "", db.NewMemDB(), log.NewLogger(cmd.OutOrStdout()))
+
+			node := node.NewInterceptorNode(config, opApp)
+
 			if err := node.Start(); err != nil {
 				return err
 			}

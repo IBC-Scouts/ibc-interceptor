@@ -22,6 +22,7 @@ require (
 	github.com/cosmos/ibc-go/v8 v8.1.0
 	github.com/ethereum-optimism/optimism v1.4.2
 	github.com/ethereum/go-ethereum v1.13.5
+	github.com/graph-gophers/graphql-go v1.3.0
 	github.com/spf13/cast v1.5.1
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.8.4

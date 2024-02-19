@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ibc-scouts/ibc-interceptor/cmd"
+	"github.com/ibc-scouts/ibc-interceptor/node/cmd"
 )
 
 func main() {

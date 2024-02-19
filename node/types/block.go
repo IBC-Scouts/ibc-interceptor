@@ -89,14 +89,6 @@ type Block struct {
 
 var _ BlockData = (*Block)(nil)
 
-func UnmarshalBlock(bytes []byte) (BlockData, error) {
-	b := Block{}
-	if err := json.Unmarshal(bytes, &b); err != nil {
-		panic(err)
-	}
-	return &b, nil
-}
-
 func (b *Block) Height() int64 {
 	return b.Header.Height
 }
@@ -107,6 +99,14 @@ func (b *Block) Bytes() []byte {
 		panic(err)
 	}
 	return bytes
+}
+
+func UnmarshalBlock(bytes []byte) (BlockData, error) {
+	b := Block{}
+	if err := json.Unmarshal(bytes, &b); err != nil {
+		panic(err)
+	}
+	return &b, nil
 }
 
 // Hash returns a unique hash of the block, used as the block identifier
