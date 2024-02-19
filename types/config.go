@@ -16,7 +16,8 @@ type Config struct {
 	GethEngineAddr string `json:"gethEngineAddr"`
 	GethAuthSecret []byte `json:"gethAuthSecret"`
 
-	EngineServerAddr string `json:"engineServerAddr"`
+	EngineServerAddr  string `json:"engineServerAddr"`
+	PeptideEngineAddr string `json:"peptideEngineAddr"`
 }
 
 // ConfigFromFilePath reads a Config from a file.

@@ -1,22 +1,11 @@
 package node
 
 import (
-	"fmt"
-	"log"
-	"strconv"
 	"sync"
-	"time"
 
-	dbm "github.com/cometbft/cometbft-db"
-	abcitypes "github.com/cometbft/cometbft/abci/types"
 	cmttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum-optimism/optimism/op-service/client"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	ethrpc "github.com/ethereum/go-ethereum/rpc"
-	"github.com/ibc-scouts/ibc-interceptor/abci/app"
-	geth "github.com/ibc-scouts/ibc-interceptor/node/client"
+	nodeclient "github.com/ibc-scouts/ibc-interceptor/node/client"
 	"github.com/ibc-scouts/ibc-interceptor/node/server"
 	"github.com/ibc-scouts/ibc-interceptor/node/server/api"
 	eetypes "github.com/ibc-scouts/ibc-interceptor/node/types"
@@ -30,17 +19,13 @@ const (
 	TxStoreDbName    = "txstore"
 )
 
-var _ api.Node = (*InterceptorNode)(nil)
-
 type InterceptorNode struct {
-	app *app.OpApp
-
 	// eeServer is the RPC server for the Execution Engine
 	eeServer *server.EERPCServer
 	// ethRPC is the RPC client for the Ethereum node
 	ethRPC client.RPC
-
-	genesis eetypes.Genesis
+	// peptideRPC is the RPC client for the Peptide node
+	peptideRPC client.RPC
 
 	logger types.CompositeLogger
 	lock   sync.RWMutex
@@ -52,14 +37,18 @@ type InterceptorNode struct {
 	latestBlock *eetypes.Block
 }
 
-func NewInterceptorNode(config *types.Config, app *app.OpApp) *InterceptorNode {
+func NewInterceptorNode(config *types.Config) *InterceptorNode {
 	logger, err := config.GetLogger("module", "interceptor")
 	if err != nil {
 		panic(err)
 	}
 
 	// create the geth client based on address passed in via command line.
-	ethRPC, err := geth.NewRPCClient(config.GethEngineAddr, config.GethAuthSecret, logger.New("client", "op-geth"))
+	ethRPC, err := nodeclient.NewRPCClient(config.GethEngineAddr, config.GethAuthSecret, logger.New("client", "op-geth"))
+	if err != nil {
+		panic(err)
+	}
+	peptideRPC, err := nodeclient.NewRPCClient(config.PeptideEngineAddr, nil, logger.New("client", "peptide"))
 	if err != nil {
 		panic(err)
 	}
@@ -67,56 +56,17 @@ func NewInterceptorNode(config *types.Config, app *app.OpApp) *InterceptorNode {
 	rpcServerConfig := server.DefaultConfig(config.EngineServerAddr)
 
 	node := &InterceptorNode{
-		app:    app,
-		logger: logger,
-		ethRPC: ethRPC,
+		logger:     logger,
+		ethRPC:     ethRPC,
+		peptideRPC: peptideRPC,
 	}
 
-	rpcAPIs := api.GetAPIs(node, ethRPC, logger.With("server", "exec_engine_api"))
+	rpcAPIs := api.GetAPIs(ethRPC, peptideRPC, logger.With("server", "exec_engine_api"))
 	eeServer := server.NewEeRPCServer(rpcServerConfig, rpcAPIs, logger.With("server", "exec_engine_rpc"))
 
 	node.eeServer = eeServer
 
 	return node
-}
-
-func InitChain(app *app.OpApp, db dbm.DB, genesis *eetypes.Genesis) (*eetypes.Block, error) {
-	block := eetypes.Block{}
-
-	// TODO(jim): Would we need this?
-	/*
-		l1TxBytes, err := derive.L1InfoDepositBytes(
-			&rollup.Config{},
-			// TODO fill this out?
-			eth.SystemConfig{},
-			0,
-			// TODO add l1 parent hash from genesis
-			eetypes.NewBlockInfo(genesis.L1.Hash, eetypes.HashOfEmptyHash, genesis.L1.Number, uint64(genesis.GenesisTime.Unix())),
-			0,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to derive L1 info deposit tx bytes for genesis block: %v", err)
-		}
-		block.L1Txs = []eth.Data{l1TxBytes}
-	*/
-	genesisHeader := app.Init(genesis.AppState, genesis.InitialHeight, genesis.GenesisTime)
-
-	header := eetypes.Header{}
-	header.Populate(genesisHeader)
-	block.Header = &header
-	block.GasLimit = hexutil.Uint64(DefaultGasLimit)
-
-	bs := eetypes.NewBlockStore(db, eetypes.UnmarshalBlock)
-
-	bs.AddBlock(&block)
-	hash := block.Hash()
-	for _, label := range []eth.BlockLabel{eth.Unsafe, eth.Finalized, eth.Safe} {
-		if err := bs.UpdateLabel(label, hash); err != nil {
-			panic(err)
-		}
-	}
-
-	return &block, nil
 }
 
 func (n *InterceptorNode) Start() error {
@@ -133,6 +83,7 @@ func (n *InterceptorNode) Stop() error {
 	}
 
 	n.ethRPC.Close()
+	n.peptideRPC.Close()
 
 	return nil
 }
@@ -144,6 +95,8 @@ func (n *InterceptorNode) AddTxToMempool(tx cmttypes.Tx) {
 
 	n.txMempool = append(n.txMempool, tx)
 }
+
+/*
 
 // LastBlockHeight implements the Node interface.
 func (n *InterceptorNode) LastBlockHeight() int64 {
@@ -366,3 +319,5 @@ func (oa *InterceptorNode) findParentHash() eetypes.Hash {
 	// TODO: handle cases where non-genesis block is missing
 	return eetypes.ZeroHash
 }
+
+*/

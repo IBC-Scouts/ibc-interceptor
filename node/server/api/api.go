@@ -45,35 +45,33 @@ type Node interface {
 	Rollback(head, safe, finalized *Block) error
 }
 
-func GetAPIs(node Node, ethPRC client.RPC, logger log.Logger) []rpc.API {
+// Todo(jim): Add peptide rpc
+func GetAPIs(ethPRC, peptideRPC client.RPC, logger log.Logger) []rpc.API {
 	if ethPRC == nil {
-		panic("execEngine is nil")
+		panic("eth client is nil")
 	}
-
-	if node == nil {
-		panic("node is nil")
+	if peptideRPC == nil {
+		panic("peptide client is nil")
 	}
 
 	if logger == nil {
 		panic("logger is nil")
 	}
 
-	// TODO(jim): Do we really need pointer?
-	sdkEngine := NewSdkEngine(node, logger)
-
 	// TODO(jim): Move each to different file? engine.go, eth.go, cosmos.go?
 	apis := []rpc.API{
 		{
 			Namespace: "engine",
-			Service:   newEngineAPI(ethPRC, sdkEngine, logger),
+			Service:   newEngineAPI(ethPRC, peptideRPC, logger),
 		},
 		{
 			Namespace: "eth",
-			Service:   newEthAPI(ethPRC, logger),
+			Service:   newEthAPI(ethPRC, peptideRPC, logger),
 		},
 		{
 			Namespace: "cosmos",
-			Service:   newCosmosAPI(logger),
+			// TODO: Unsure if we can call some of their endpoints yet.
+			Service: newCosmosAPI(logger),
 		},
 	}
 
@@ -88,15 +86,16 @@ func GetAPIs(node Node, ethPRC client.RPC, logger log.Logger) []rpc.API {
 type engineServer struct {
 	// client dials into op-geth server.
 	// Might be best to not embed if we maybe want to add an sdk engine via rpc.
-	ethRPC    client.RPC
-	sdkEngine SdkEngine
+	ethRPC client.RPC
+	// Sdk client (via peptide)
+	peptideRPC client.RPC
 
 	logger log.Logger
 }
 
 // newExecutionEngineAPI returns a new execEngineAPI.
-func newEngineAPI(ethRPC client.RPC, sdkEngine SdkEngine, logger log.Logger) *engineServer {
-	return &engineServer{ethRPC, sdkEngine, logger}
+func newEngineAPI(ethRPC, peptideRPC client.RPC, logger log.Logger) *engineServer {
+	return &engineServer{ethRPC, peptideRPC, logger}
 }
 
 func (e *engineServer) ForkchoiceUpdatedV1(
@@ -113,7 +112,8 @@ func (e *engineServer) ForkchoiceUpdatedV1(
 	if false {
 		// Forward to the abci engine.
 		e.logger.Info("forwarding ForkchoiceUpdatedV1 to abci engine")
-		_, err = e.sdkEngine.ForkchoiceUpdatedV1(fcs, pa)
+		err = e.peptideRPC.CallContext(context.TODO(), &result, "engine_forkchoiceUpdatedV1", fcs, pa)
+
 		if err != nil {
 			e.logger.Error("failed to forward ForkchoiceUpdatedV1 to abci engine", "error", err)
 		} else {
@@ -138,13 +138,14 @@ func (e *engineServer) ForkchoiceUpdatedV2(
 	if false {
 		// Forward to the abci engine.
 		e.logger.Info("forwarding ForkchoiceUpdatedV2 to abci engine")
+		err = e.peptideRPC.CallContext(context.TODO(), &result, "engine_forkchoiceUpdatedV2", fcs, pa)
 
-		_, err = e.sdkEngine.ForkchoiceUpdatedV2(fcs, pa)
 		if err != nil {
 			e.logger.Error("failed to forward ForkchoiceUpdatedV2 to abci engine", "error", err)
 		} else {
 			e.logger.Info("completed: forwarding ForkchoiceUpdatedV2 to abci engine")
 		}
+
 	}
 
 	return &result, err
@@ -165,7 +166,7 @@ func (e *engineServer) ForkchoiceUpdatedV3(
 		// Forward to the abci engine.
 		e.logger.Info("forwarding ForkchoiceUpdatedV3 to abci engine")
 
-		_, err = e.sdkEngine.ForkchoiceUpdatedV3(fcs, pa)
+		err = e.peptideRPC.CallContext(context.TODO(), &result, "engine_forkchoiceUpdatedV3", fcs, pa)
 		if err != nil {
 			e.logger.Error("failed to forward ForkchoiceUpdatedV3 to abci engine", "error", err)
 		} else {
@@ -188,7 +189,7 @@ func (e *engineServer) GetPayloadV1(payloadID eth.PayloadID) (*eth.ExecutionPayl
 		// Forward to the abci engine.
 		e.logger.Info("forwarding GetPayloadV1 to abci engine")
 
-		_, err = e.sdkEngine.GetPayloadV1(payloadID)
+		err = e.peptideRPC.CallContext(context.TODO(), &result, "engine_getPayloadV1", payloadID)
 		if err != nil {
 			e.logger.Error("failed to forward GetPayloadV1 to abci engine", "error", err)
 		} else {
@@ -211,7 +212,7 @@ func (e *engineServer) GetPayloadV2(payloadID eth.PayloadID) (*eth.ExecutionPayl
 		// Forward to the abci engine.
 		e.logger.Info("forwarding GetPayloadV2 to abci engine")
 
-		_, err = e.sdkEngine.GetPayloadV2(payloadID)
+		err = e.peptideRPC.CallContext(context.TODO(), &result, "engine_getPayloadV2", payloadID)
 		if err != nil {
 			e.logger.Error("failed to forward GetPayloadV2 to abci engine", "error", err)
 		} else {
@@ -234,7 +235,7 @@ func (e *engineServer) GetPayloadV3(payloadID eth.PayloadID) (*eth.ExecutionPayl
 		// Forward to the abci engine.
 		e.logger.Info("forwarding GetPayloadV3 to abci engine")
 
-		_, err = e.sdkEngine.GetPayloadV3(payloadID)
+		err = e.peptideRPC.CallContext(context.TODO(), &result, "engine_getPayloadV3", payloadID)
 		if err != nil {
 			e.logger.Error("failed to forward GetPayloadV3 to abci engine", "error", err)
 		} else {
@@ -257,7 +258,7 @@ func (e *engineServer) NewPayloadV1(payload *eth.ExecutionPayload) (*eth.Payload
 		// Forward to the abci engine.
 		e.logger.Info("forwarding NewPayloadV1 to abci engine")
 
-		_, err = e.sdkEngine.NewPayloadV1(payload)
+		err = e.peptideRPC.CallContext(context.TODO(), &result, "engine_newPayloadV1", payload)
 		if err != nil {
 			e.logger.Error("failed to forward NewPayloadV1 to abci engine", "error", err)
 		} else {
@@ -276,11 +277,14 @@ func (e *engineServer) NewPayloadV2(payload *eth.ExecutionPayload) (*eth.Payload
 
 	e.logger.Info("completed: NewPayloadV2", "error", err, "result", &result)
 
+	// Forward to the abci engine.
+	e.logger.Info("forwarding NewPayloadV2 to abci engine")
+
 	if false {
 		// Forward to the abci engine.
 		e.logger.Info("forwarding NewPayloadV2 to abci engine")
 
-		_, err = e.sdkEngine.NewPayloadV2(payload)
+		err = e.peptideRPC.CallContext(context.TODO(), &result, "engine_newPayloadV2", payload)
 		if err != nil {
 			e.logger.Error("failed to forward NewPayloadV2 to abci engine", "error", err)
 		} else {
@@ -303,7 +307,7 @@ func (e *engineServer) NewPayloadV3(payload *eth.ExecutionPayload) (*eth.Payload
 		// Forward to the abci engine.
 		e.logger.Info("forwarding NewPayloadV3 to abci engine")
 
-		_, err = e.sdkEngine.NewPayloadV3(payload)
+		err = e.peptideRPC.CallContext(context.TODO(), &result, "engine_newPayloadV3", payload)
 		if err != nil {
 			e.logger.Error("failed to forward NewPayloadV3 to abci engine", "error", err)
 		} else {
@@ -321,20 +325,21 @@ func (e *engineServer) NewPayloadV3(payload *eth.ExecutionPayload) (*eth.Payload
 type ethServer struct {
 	// client dials into op-geth server.
 	// Might be best to not embed if we maybe want to add an sdk engine via rpc.
-	client.RPC
-	logger log.Logger
+	ethRPC     client.RPC
+	peptideRPC client.RPC
+	logger     log.Logger
 }
 
 // newEthAPI returns a new execEngineAPI.
-func newEthAPI(engine client.RPC, logger log.Logger) *ethServer {
-	return &ethServer{engine, logger}
+func newEthAPI(ethRPC, peptideRPC client.RPC, logger log.Logger) *ethServer {
+	return &ethServer{ethRPC, peptideRPC, logger}
 }
 
 func (e *ethServer) ChainId() (hexutil.Big, error) { // nolint: revive, stylecheck
 	e.logger.Info("trying: ChainID")
 
 	var id hexutil.Big
-	err := e.CallContext(context.TODO(), &id, "eth_chainId")
+	err := e.ethRPC.CallContext(context.TODO(), &id, "eth_chainId")
 
 	return id, err
 }
@@ -346,7 +351,7 @@ func (e *ethServer) GetBlockByNumber(id any, fullTx bool) (map[string]any, error
 	e.logger.Info("trying: GetBlockByNumber", "id", id)
 
 	var result map[string]any
-	err := e.CallContext(context.TODO(), &result, "eth_getBlockByNumber", id, fullTx)
+	err := e.ethRPC.CallContext(context.TODO(), &result, "eth_getBlockByNumber", id, fullTx)
 
 	return result, err
 }
@@ -356,7 +361,7 @@ func (e *ethServer) GetBlockByHash(id any, fullTx bool) (map[string]any, error) 
 	e.logger.Info("trying: GetBlockByHash", "id", id)
 
 	var result map[string]any
-	err := e.CallContext(context.TODO(), &result, "eth_getBlockByHash", id, fullTx)
+	err := e.ethRPC.CallContext(context.TODO(), &result, "eth_getBlockByHash", id, fullTx)
 
 	e.logger.Info("completed: GetBlockByHash", "result", result)
 
@@ -368,7 +373,7 @@ func (e *ethServer) GetProof(address common.Address, storageKeys []string, block
 	e.logger.Info("trying: GetProof")
 
 	var result map[string]any
-	err := e.CallContext(context.TODO(), &result, "eth_getProof", address, storageKeys, blockNrOrHash)
+	err := e.ethRPC.CallContext(context.TODO(), &result, "eth_getProof", address, storageKeys, blockNrOrHash)
 
 	e.logger.Info("completed: GetBlockByHash", "result", result)
 	return result, err
@@ -379,7 +384,7 @@ func (e *ethServer) GetProof(address common.Address, storageKeys []string, block
 func (e *ethServer) GetTransactionReceipt(txHash common.Hash) (map[string]any, error) {
 	e.logger.Info("trying: GetTransactionReceipt")
 	var result map[string]any
-	err := e.CallContext(context.TODO(), &result, "eth_getTransactionReceipt", txHash)
+	err := e.ethRPC.CallContext(context.TODO(), &result, "eth_getTransactionReceipt", txHash)
 
 	e.logger.Info("completed: GetTransactionReceipt", "error", err, "result", result)
 	return result, err
