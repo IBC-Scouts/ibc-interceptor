@@ -107,18 +107,19 @@ func (e *engineServer) ForkchoiceUpdatedV2(
 
 	e.logger.Info("message mempool status: ", "hasMsgs", e.mempoolNode.HasMsgs())
 
-	if false {
-		// Forward to the abci engine.
-		e.logger.Info("forwarding ForkchoiceUpdatedV2 to abci engine")
-		err = e.peptideRPC.CallContext(context.TODO(), &result, "engine_forkchoiceUpdatedV2", fcs, pa)
+	//if false {
+	// Forward to the abci engine.
+	e.logger.Info("forwarding ForkchoiceUpdatedV2 to abci engine")
 
-		if err != nil {
-			e.logger.Error("failed to forward ForkchoiceUpdatedV2 to abci engine", "error", err)
-		} else {
-			e.logger.Info("completed: forwarding ForkchoiceUpdatedV2 to abci engine")
-		}
-
+	var peptideResult eth.ForkchoiceUpdatedResult
+	err = e.peptideRPC.CallContext(context.TODO(), &peptideResult, "engine_forkchoiceUpdatedV2", fcs, pa)
+	if err != nil {
+		e.logger.Error("failed to forward ForkchoiceUpdatedV2 to abci engine", "error", err)
+	} else {
+		e.logger.Info("completed: forwarding ForkchoiceUpdatedV2 to abci engine")
 	}
+
+	//}
 
 	// TODO(jim): Crude at this point.
 	if e.mempoolNode.HasMsgs() {
@@ -190,16 +191,15 @@ func (e *engineServer) GetPayloadV2(payloadID eth.PayloadID) (*eth.ExecutionPayl
 	var result eth.ExecutionPayloadEnvelope
 	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_getPayloadV2", payloadID)
 
-	if false {
-		// Forward to the abci engine.
-		e.logger.Info("forwarding GetPayloadV2 to abci engine")
+	// Forward to the abci engine.
+	e.logger.Info("forwarding GetPayloadV2 to abci engine")
 
-		err = e.peptideRPC.CallContext(context.TODO(), &result, "engine_getPayloadV2", payloadID)
-		if err != nil {
-			e.logger.Error("failed to forward GetPayloadV2 to abci engine", "error", err)
-		} else {
-			e.logger.Info("completed: forwarding GetPayloadV2 to abci engine")
-		}
+	var abciResult eth.ExecutionPayloadEnvelope
+	err = e.peptideRPC.CallContext(context.TODO(), &abciResult, "engine_getPayloadV2", payloadID)
+	if err != nil {
+		e.logger.Error("failed to forward GetPayloadV2 to abci engine", "error", err)
+	} else {
+		e.logger.Info("completed: forwarding GetPayloadV2 to abci engine")
 	}
 
 	e.logger.Info("completed: GetPayloadV2", "error", err, "result", result.ExecutionPayload)
@@ -256,16 +256,15 @@ func (e *engineServer) NewPayloadV2(payload *eth.ExecutionPayload) (*eth.Payload
 	var result eth.PayloadStatusV1
 	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_newPayloadV2", payload)
 
-	if false {
-		// Forward to the abci engine.
-		e.logger.Info("forwarding NewPayloadV2 to abci engine")
+	// Forward to the abci engine.
+	e.logger.Info("forwarding NewPayloadV2 to abci engine")
 
-		err = e.peptideRPC.CallContext(context.TODO(), &result, "engine_newPayloadV2", payload)
-		if err != nil {
-			e.logger.Error("failed to forward NewPayloadV2 to abci engine", "error", err)
-		} else {
-			e.logger.Info("completed: forwarding NewPayloadV2 to abci engine")
-		}
+	var abciResult eth.PayloadStatusV1
+	err = e.peptideRPC.CallContext(context.TODO(), &abciResult, "engine_newPayloadV2", payload)
+	if err != nil {
+		e.logger.Error("failed to forward NewPayloadV2 to abci engine", "error", err)
+	} else {
+		e.logger.Info("completed: forwarding NewPayloadV2 to abci engine")
 	}
 
 	e.logger.Info("completed: NewPayloadV2", "error", err, "result", &result)
