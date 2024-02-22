@@ -41,7 +41,7 @@ func GetAPIs(mempoolNode MempoolNode, blockStore BlockStore, ethPRC, peptideRPC 
 		},
 		{
 			Namespace: "eth",
-			Service:   newEthAPI(ethPRC, peptideRPC, logger),
+			Service:   newEthAPI(blockStore, ethPRC, peptideRPC, logger),
 		},
 	}
 
@@ -262,8 +262,8 @@ func (e *engineServer) NewPayloadV1(payload *eth.ExecutionPayload) (*eth.Payload
 func (e *engineServer) NewPayloadV2(payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
 	e.logger.Info("trying: NewPayloadV2", "payload.ID", payload.ID(), "blockHash", payload.BlockHash.Hex())
 
-	var result eth.PayloadStatusV1
-	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_newPayloadV2", payload)
+	var gethResult eth.PayloadStatusV1
+	err := e.ethRPC.CallContext(context.TODO(), &gethResult, "engine_newPayloadV2", payload)
 
 	// Forward to the abci engine.
 	e.logger.Info("forwarding NewPayloadV2 to abci engine")
@@ -276,8 +276,8 @@ func (e *engineServer) NewPayloadV2(payload *eth.ExecutionPayload) (*eth.Payload
 		e.logger.Info("completed: forwarding NewPayloadV2 to abci engine")
 	}
 
-	e.logger.Info("completed: NewPayloadV2", "error", err, "result", &result)
-	return &result, err
+	e.logger.Info("completed: NewPayloadV2", "error", err, "result", &gethResult)
+	return &gethResult, err
 }
 
 func (e *engineServer) NewPayloadV3(payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
@@ -309,14 +309,15 @@ func (e *engineServer) NewPayloadV3(payload *eth.ExecutionPayload) (*eth.Payload
 type ethServer struct {
 	// client dials into op-geth server.
 	// Might be best to not embed if we maybe want to add an sdk engine via rpc.
+	blockStore BlockStore
 	ethRPC     client.RPC
 	peptideRPC client.RPC
 	logger     log.Logger
 }
 
 // newEthAPI returns a new execEngineAPI.
-func newEthAPI(ethRPC, peptideRPC client.RPC, logger log.Logger) *ethServer {
-	return &ethServer{ethRPC, peptideRPC, logger}
+func newEthAPI(blockStore BlockStore, ethRPC, peptideRPC client.RPC, logger log.Logger) *ethServer {
+	return &ethServer{blockStore, ethRPC, peptideRPC, logger}
 }
 
 func (e *ethServer) ChainId() (hexutil.Big, error) { // nolint: revive, stylecheck
@@ -334,22 +335,37 @@ func (e *ethServer) ChainId() (hexutil.Big, error) { // nolint: revive, styleche
 func (e *ethServer) GetBlockByNumber(id any, fullTx bool) (map[string]any, error) {
 	e.logger.Info("trying: GetBlockByNumber", "id", id)
 
-	var result map[string]any
-	err := e.ethRPC.CallContext(context.TODO(), &result, "eth_getBlockByNumber", id, fullTx)
+	var gethResult map[string]any
+	err := e.ethRPC.CallContext(context.TODO(), &gethResult, "eth_getBlockByNumber", id, fullTx)
 
-	return result, err
+	var abciResult map[string]any
+	err = e.peptideRPC.CallContext(context.TODO(), &abciResult, "eth_getBlockByNumber", id, fullTx)
+
+	//	gethHash := common.HexToHash(gethResult["hash"].(string))
+	//	abciHash := common.HexToHash(abciResult["hash"].(string))
+	//	compositeBlock := types.NewCompositeBlock(gethHash, abciHash)
+	//	gethResult["hash"] = compositeBlock.Hash()
+
+	return gethResult, err
 }
 
 // Added for completeness -- tests do not appear to invoke for time being.
 func (e *ethServer) GetBlockByHash(id any, fullTx bool) (map[string]any, error) {
 	e.logger.Info("trying: GetBlockByHash", "id", id)
 
-	var result map[string]any
-	err := e.ethRPC.CallContext(context.TODO(), &result, "eth_getBlockByHash", id, fullTx)
+	//	hash := id.([]byte)
+	//	compositeBlock := e.blockStore.GetCompositeBlock(common.BytesToHash(hash))
 
-	e.logger.Info("completed: GetBlockByHash", "result", result)
+	var gethResult map[string]any
+	//	err := e.ethRPC.CallContext(context.TODO(), &gethResult, "eth_getBlockByHash", compositeBlock.GethHash, fullTx)
+	err := e.ethRPC.CallContext(context.TODO(), &gethResult, "eth_getBlockByHash", id, fullTx)
 
-	return result, err
+	//	var abciResult map[string]any
+	//	err = e.peptideRPC.CallContext(context.TODO(), &abciResult, "eth_getBlockByHash", compositeBlock.ABCIHash, fullTx)
+
+	e.logger.Info("completed: GetBlockByHash", "result", gethResult)
+
+	return gethResult, err
 }
 
 // Added for completeness -- tests do not appear to invoke for time being.
@@ -359,7 +375,7 @@ func (e *ethServer) GetProof(address common.Address, storageKeys []string, block
 	var result map[string]any
 	err := e.ethRPC.CallContext(context.TODO(), &result, "eth_getProof", address, storageKeys, blockNrOrHash)
 
-	e.logger.Info("completed: GetBlockByHash", "result", result)
+	e.logger.Info("completed: GetProof", "result", result)
 	return result, err
 }
 
