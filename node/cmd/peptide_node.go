@@ -10,11 +10,15 @@ import (
 )
 
 const (
-	appRpcAddress       = "localhost:35463"
+	// Default address for peptide app rpc.
+	appRpcAddress = "localhost:0"
+	// Default address for peptide engine rpc.
 	eeHttpServerAddress = "localhost:35462"
-	eeWsUrl             = "ws://127.0.0.1:35462/websocket"
+	// Same as eeHttpServerAddress, used by us to connect to peptide.
+	eeWsUrl = "ws://127.0.0.1:35462/websocket"
 )
 
+// Get the binary path for the peptide binary.
 func getBinaryPath() (string, error) {
 	wd, err := os.Getwd()
 	if err != nil {
@@ -33,7 +37,7 @@ func getBinaryPath() (string, error) {
 
 // Run the peptide binary using in memory dbs. I do not want to debug the cause behind init/seal/start
 // invocation.
-func BinStartInMemory() error {
+func PeptideStart() error {
 	binPath, err := getBinaryPath()
 	if err != nil {
 		return fmt.Errorf("could not get binary path: %w", err)

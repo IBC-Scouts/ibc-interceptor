@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/client"
 )
 
-// NewRPCClient creates a new eth rpc client.
+// NewRPCClient creates a new eth rpc client used for highjacking the op-node's rpc calls.
 func NewRPCClient(address string, authSecret []byte, logger log.Logger) (client.RPC, error) {
 	if strings.TrimSpace(address) == "" {
 		return nil, fmt.Errorf("geth execution engine address must be non-empty")

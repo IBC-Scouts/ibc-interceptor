@@ -17,36 +17,10 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 
 	"github.com/cometbft/cometbft/libs/log"
-	eetypes "github.com/ibc-scouts/ibc-interceptor/node/types"
 )
 
-type (
-	Hash  = eetypes.Hash
-	Block = eetypes.Block
-)
-
-type Node interface {
-	LastBlockHeight() int64
-	// SavePayload saves the payload by its ID if it's not already in payload cache.
-	// Also update the latest Payload if this is a new payload
-	SavePayload(payload *eetypes.Payload)
-	GetPayload(payloadID eetypes.PayloadID) (*eetypes.Payload, bool)
-	CurrentPayload() *eetypes.Payload
-	// The latest unsafe block hash
-	//
-	// The latest unsafe block refers to sealed blocks, not the one that's being built on
-	HeadBlockHash() Hash
-	CommitBlock() error
-	GetChainID() string
-
-	GetBlock(id any) (*Block, error)
-	UpdateLabel(label eth.BlockLabel, hash Hash) error
-
-	Rollback(head, safe, finalized *Block) error
-}
-
-// Todo(jim): Add peptide rpc
-func GetAPIs(ethPRC, peptideRPC client.RPC, logger log.Logger) []rpc.API {
+// TODO(jim): passed by lock.
+func GetAPIs(mempoolNode MempoolNode, ethPRC, peptideRPC client.RPC, logger log.Logger) []rpc.API {
 	if ethPRC == nil {
 		panic("eth client is nil")
 	}
@@ -58,20 +32,15 @@ func GetAPIs(ethPRC, peptideRPC client.RPC, logger log.Logger) []rpc.API {
 		panic("logger is nil")
 	}
 
-	// TODO(jim): Move each to different file? engine.go, eth.go, cosmos.go?
+	// TODO(jim): Move eth to its own file?
 	apis := []rpc.API{
 		{
 			Namespace: "engine",
-			Service:   newEngineAPI(ethPRC, peptideRPC, logger),
+			Service:   newEngineAPI(mempoolNode, ethPRC, peptideRPC, logger),
 		},
 		{
 			Namespace: "eth",
 			Service:   newEthAPI(ethPRC, peptideRPC, logger),
-		},
-		{
-			Namespace: "cosmos",
-			// TODO: Unsure if we can call some of their endpoints yet.
-			Service: newCosmosAPI(logger),
 		},
 	}
 
@@ -84,20 +53,23 @@ func GetAPIs(ethPRC, peptideRPC client.RPC, logger log.Logger) []rpc.API {
 // Implements most of the 'engine_' methods and the currently (guided by op-e2e tests)
 // required 'eth_' prefixed methods.
 type engineServer struct {
-	// client dials into op-geth server.
-	// Might be best to not embed if we maybe want to add an sdk engine via rpc.
+	// mempoolNode contains a reference to the mempool.
+	mempoolNode MempoolNode
+
+	// ethRPC is an RPC client for calling into op-geth RPC server.
 	ethRPC client.RPC
-	// Sdk client (via peptide)
+	// peptideRPC is an RPC client for calling into the peptide RPC server (sdk engine).
 	peptideRPC client.RPC
 
 	logger log.Logger
 }
 
 // newExecutionEngineAPI returns a new execEngineAPI.
-func newEngineAPI(ethRPC, peptideRPC client.RPC, logger log.Logger) *engineServer {
-	return &engineServer{ethRPC, peptideRPC, logger}
+func newEngineAPI(mempoolNode MempoolNode, ethRPC, peptideRPC client.RPC, logger log.Logger) *engineServer {
+	return &engineServer{mempoolNode, ethRPC, peptideRPC, logger}
 }
 
+// TODO(jim): Is not called, forward to V2 which is?
 func (e *engineServer) ForkchoiceUpdatedV1(
 	fcs eth.ForkchoiceState,
 	pa *eth.PayloadAttributes,
@@ -106,8 +78,6 @@ func (e *engineServer) ForkchoiceUpdatedV1(
 
 	var result eth.ForkchoiceUpdatedResult
 	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_forkchoiceUpdatedV1", fcs, pa)
-
-	e.logger.Info("completed: forwarding ForkchoiceUpdatedV1 to geth", "error", err, "result", &result)
 
 	if false {
 		// Forward to the abci engine.
@@ -121,6 +91,8 @@ func (e *engineServer) ForkchoiceUpdatedV1(
 		}
 	}
 
+	e.logger.Info("completed: forwarding ForkchoiceUpdatedV1 to geth", "error", err, "result", &result)
+
 	return &result, err
 }
 
@@ -133,7 +105,7 @@ func (e *engineServer) ForkchoiceUpdatedV2(
 	var result eth.ForkchoiceUpdatedResult
 	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_forkchoiceUpdatedV2", fcs, pa)
 
-	e.logger.Info("completed: ForkchoiceUpdatedV2", "error", err, "result", result)
+	e.logger.Info("message mempool status: ", "hasMsgs", e.mempoolNode.HasMsgs())
 
 	if false {
 		// Forward to the abci engine.
@@ -148,9 +120,23 @@ func (e *engineServer) ForkchoiceUpdatedV2(
 
 	}
 
+	// TODO(jim): Crude at this point.
+	if e.mempoolNode.HasMsgs() {
+		msgs := e.mempoolNode.GetMsgs()
+
+		for _, msg := range msgs {
+			e.logger.Info("forwarding a message to abci mempool", "msg", msg)
+			e.peptideRPC.CallContext(context.TODO(), nil, "intercept_addMsgToTxMempool", msg)
+		}
+	}
+
+	e.logger.Info("completed: ForkchoiceUpdatedV2", "error", err, "result", result)
+
 	return &result, err
 }
 
+// TODO(jim): Isn't called in current version of op-node we depend on but _is_ called in version
+// peptide was developed against.
 func (e *engineServer) ForkchoiceUpdatedV3(
 	fcs eth.ForkchoiceState,
 	pa *eth.PayloadAttributes,
@@ -159,8 +145,6 @@ func (e *engineServer) ForkchoiceUpdatedV3(
 
 	var result eth.ForkchoiceUpdatedResult
 	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_forkchoiceUpdatedV3", fcs, pa)
-
-	e.logger.Info("completed: ForkchoiceUpdatedV3", "error", err, "result", &result)
 
 	if false {
 		// Forward to the abci engine.
@@ -174,6 +158,7 @@ func (e *engineServer) ForkchoiceUpdatedV3(
 		}
 	}
 
+	e.logger.Info("completed: ForkchoiceUpdatedV3", "error", err, "result", &result)
 	return &result, err
 }
 
@@ -182,8 +167,6 @@ func (e *engineServer) GetPayloadV1(payloadID eth.PayloadID) (*eth.ExecutionPayl
 
 	var result eth.ExecutionPayloadEnvelope
 	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_getPayloadV1", payloadID)
-
-	e.logger.Info("completed: GetPayloadV1", "error", err, "result", &result)
 
 	if false {
 		// Forward to the abci engine.
@@ -197,6 +180,7 @@ func (e *engineServer) GetPayloadV1(payloadID eth.PayloadID) (*eth.ExecutionPayl
 		}
 	}
 
+	e.logger.Info("completed: GetPayloadV1", "error", err, "result", &result)
 	return result.ExecutionPayload, err
 }
 
@@ -205,8 +189,6 @@ func (e *engineServer) GetPayloadV2(payloadID eth.PayloadID) (*eth.ExecutionPayl
 
 	var result eth.ExecutionPayloadEnvelope
 	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_getPayloadV2", payloadID)
-
-	e.logger.Info("completed: GetPayloadV2", "error", err, "result", result.ExecutionPayload)
 
 	if false {
 		// Forward to the abci engine.
@@ -220,6 +202,7 @@ func (e *engineServer) GetPayloadV2(payloadID eth.PayloadID) (*eth.ExecutionPayl
 		}
 	}
 
+	e.logger.Info("completed: GetPayloadV2", "error", err, "result", result.ExecutionPayload)
 	return &result, err
 }
 
@@ -228,8 +211,6 @@ func (e *engineServer) GetPayloadV3(payloadID eth.PayloadID) (*eth.ExecutionPayl
 
 	var result eth.ExecutionPayloadEnvelope
 	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_getPayloadV3", payloadID)
-
-	e.logger.Info("completed: GetPayloadV3", "error", err, "result", &result)
 
 	if false {
 		// Forward to the abci engine.
@@ -243,6 +224,7 @@ func (e *engineServer) GetPayloadV3(payloadID eth.PayloadID) (*eth.ExecutionPayl
 		}
 	}
 
+	e.logger.Info("completed: GetPayloadV3", "error", err, "result", &result)
 	return &result, err
 }
 
@@ -251,8 +233,6 @@ func (e *engineServer) NewPayloadV1(payload *eth.ExecutionPayload) (*eth.Payload
 
 	var result eth.PayloadStatusV1
 	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_newPayloadV1", payload)
-
-	e.logger.Info("completed: NewPayloadV1", "error", err, "result", &result)
 
 	if false {
 		// Forward to the abci engine.
@@ -266,6 +246,7 @@ func (e *engineServer) NewPayloadV1(payload *eth.ExecutionPayload) (*eth.Payload
 		}
 	}
 
+	e.logger.Info("completed: NewPayloadV1", "error", err, "result", &result)
 	return &result, err
 }
 
@@ -274,11 +255,6 @@ func (e *engineServer) NewPayloadV2(payload *eth.ExecutionPayload) (*eth.Payload
 
 	var result eth.PayloadStatusV1
 	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_newPayloadV2", payload)
-
-	e.logger.Info("completed: NewPayloadV2", "error", err, "result", &result)
-
-	// Forward to the abci engine.
-	e.logger.Info("forwarding NewPayloadV2 to abci engine")
 
 	if false {
 		// Forward to the abci engine.
@@ -292,6 +268,7 @@ func (e *engineServer) NewPayloadV2(payload *eth.ExecutionPayload) (*eth.Payload
 		}
 	}
 
+	e.logger.Info("completed: NewPayloadV2", "error", err, "result", &result)
 	return &result, err
 }
 
@@ -300,8 +277,6 @@ func (e *engineServer) NewPayloadV3(payload *eth.ExecutionPayload) (*eth.Payload
 
 	var result eth.PayloadStatusV1
 	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_newPayloadV3", payload)
-
-	e.logger.Info("completed: NewPayloadV3", "error", err, "result", &result)
 
 	if false {
 		// Forward to the abci engine.
@@ -315,6 +290,7 @@ func (e *engineServer) NewPayloadV3(payload *eth.ExecutionPayload) (*eth.Payload
 		}
 	}
 
+	e.logger.Info("completed: NewPayloadV3", "error", err, "result", &result)
 	return &result, err
 }
 
@@ -388,28 +364,4 @@ func (e *ethServer) GetTransactionReceipt(txHash common.Hash) (map[string]any, e
 
 	e.logger.Info("completed: GetTransactionReceipt", "error", err, "result", result)
 	return result, err
-}
-
-// cosmosServer is the API for the underlying cosmos app.
-type cosmosServer struct {
-	logger log.Logger
-}
-
-// newCosmosAPI returns a new cosmosServer.
-func newCosmosAPI(logger log.Logger) *cosmosServer {
-	return &cosmosServer{logger}
-}
-
-/* 'cosmos_' Namespace server methods:
-
-Basically for any information we might want to send over from our e2es. */
-
-// SendCosmosTx receives an opaque tx byte slice and adds it to the mempool.
-func (e *cosmosServer) SendTransaction(tx []byte) (SendCosmosTxResult, error) {
-	e.logger.Info("trying: SendTransaction", "tx", tx)
-
-	// TODO(jim): Add it to our dummy mempool.
-
-	e.logger.Info("completed: SendTransaction")
-	return SendCosmosTxResult{}, nil
 }

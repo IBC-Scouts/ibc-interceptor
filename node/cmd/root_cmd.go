@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -20,14 +19,16 @@ func RootCmd() *cobra.Command {
 
 	// TODO(colin): decide necessary commands
 	// jim: Can go with start for now. It calls peptide.
-	rootCmd.AddCommand(
-		startCmd(),
-	)
+	rootCmd.AddCommand(startCmd())
+
 	return rootCmd
 }
 
 // startCmd is responsible for setting up the interceptor node.
-// It must setup the geth engine client.
+// It does the following:
+//  1. Reads the config file containing high level configuration for the interceptor node.
+//  2. Starts the peptide node which is the sdk execution engine for the interceptor node.
+//  3. Starts the interceptor node.
 func startCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "start",
@@ -44,18 +45,15 @@ func startCmd() *cobra.Command {
 			}
 
 			// Uses eeHttpServerAddress const, we can control where peptide binds.
-			err = BinStartInMemory()
-			if err != nil {
+			if err = PeptideStart(); err != nil {
 				return err
 			}
-			fmt.Printf("Peptide address: %s\n", eeHttpServerAddress)
 			config.PeptideEngineAddr = eeWsUrl
 
 			gethEngineAddr, err := cmd.Flags().GetString("geth-engine-addr")
 			if err != nil {
 				return err
 			}
-			fmt.Printf("gethEngineAddr: %s\n", gethEngineAddr)
 
 			if gethEngineAddr != "" {
 				config.GethEngineAddr = gethEngineAddr

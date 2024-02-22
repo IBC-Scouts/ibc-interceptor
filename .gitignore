@@ -3,3 +3,6 @@ build/
 
 # Ignore test directories
 optimism/
+
+# Ignore peptide binary (useful for testing on occasion)
+node/cmd/peptide
