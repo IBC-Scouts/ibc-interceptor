@@ -5,6 +5,7 @@ import (
 
 	cmttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum-optimism/optimism/op-service/client"
+	"github.com/ethereum/go-ethereum/common"
 	nodeclient "github.com/ibc-scouts/ibc-interceptor/node/client"
 	"github.com/ibc-scouts/ibc-interceptor/node/server"
 	"github.com/ibc-scouts/ibc-interceptor/node/server/api"
@@ -26,6 +27,7 @@ type InterceptorNode struct {
 	// msgMempool is a basic Mempool to be used in OpApp.
 	// TODO(jim): Might need to make into a full fledged type to support more complex mempool operations.
 	msgMempool [][]byte
+	blockStore map[common.Hash]eetypes.CompositeBlock
 
 	logger types.CompositeLogger
 	lock   sync.RWMutex
@@ -62,7 +64,7 @@ func NewInterceptorNode(config *types.Config) *InterceptorNode {
 	}
 
 	// Add APIs to the RPC server
-	rpcAPIs := api.GetAPIs(node, ethRPC, peptideRPC, logger.With("server", "exec_engine_api"))
+	rpcAPIs := api.GetAPIs(node, node, ethRPC, peptideRPC, logger.With("server", "exec_engine_api"))
 	rpcAPIs = append(rpcAPIs, api.GetCosmosAPI(node, logger.With("server", "cosmos_api")))
 
 	// Create config for the RPC server (address to bind to)
@@ -124,4 +126,15 @@ func (n *InterceptorNode) ClearMsgs() {
 	defer n.lock.Unlock()
 
 	n.msgMempool = nil
+}
+
+// -- BlockStore interface --
+
+// GetCompositeBlock returns a composite block given the combined block hash
+func (n *InterceptorNode) GetCompositeBlock(blockHash common.Hash) eetypes.CompositeBlock {
+	return n.blockStore[blockHash]
+}
+
+func (n *InterceptorNode) SaveCompositeBlock(compositeBlock eetypes.CompositeBlock) {
+	n.blockStore[compositeBlock.Hash()] = compositeBlock
 }

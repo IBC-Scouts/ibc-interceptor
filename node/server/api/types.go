@@ -1,7 +1,10 @@
 // types.go holds any additional required type definitions for the server implementations.
 package api
 
-import eetypes "github.com/ibc-scouts/ibc-interceptor/node/types"
+import (
+	"github.com/ethereum/go-ethereum/common"
+	eetypes "github.com/ibc-scouts/ibc-interceptor/node/types"
+)
 
 type (
 	Hash  = eetypes.Hash
@@ -18,6 +21,12 @@ type MempoolNode interface {
 	ClearMsgs()
 	// AddMsgToMempool adds a message to the mempool.
 	AddMsgToMempool(bz []byte)
+}
+
+// BlockStore allows accessing/modifying/inspecting the compose blocks.
+type BlockStore interface {
+	GetCompositeBlock(common.Hash) eetypes.CompositeBlock
+	SaveCompositeBlock(eetypes.CompositeBlock)
 }
 
 // TODO(jim): Ethereum JSON/RPC dictates responses should either return 0, 1 (response or error) or 2 (response and error).

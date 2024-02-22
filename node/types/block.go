@@ -212,3 +212,23 @@ func MustInferBlock(b BlockData) *Block {
 	}
 	return block
 }
+
+type CompositeBlock struct {
+	GethHash common.Hash
+	ABCIHash common.Hash
+}
+
+func NewCompositeBlock(gethHash, abciHash common.Hash) CompositeBlock {
+	return CompositeBlock{
+		GethHash: gethHash,
+		ABCIHash: abciHash,
+	}
+}
+
+func (b CompositeBlock) Hash() common.Hash {
+	buf := b.GethHash.Bytes()
+	buf = append(buf, b.ABCIHash.Bytes()...)
+
+	hash := sha256.Sum256(buf)
+	return common.BytesToHash(hash[:])
+}

@@ -15,12 +15,13 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	eetypes "github.com/ibc-scouts/ibc-interceptor/node/types"
 
 	"github.com/cometbft/cometbft/libs/log"
 )
 
 // TODO(jim): passed by lock.
-func GetAPIs(mempoolNode MempoolNode, ethPRC, peptideRPC client.RPC, logger log.Logger) []rpc.API {
+func GetAPIs(mempoolNode MempoolNode, blockStore BlockStore, ethPRC, peptideRPC client.RPC, logger log.Logger) []rpc.API {
 	if ethPRC == nil {
 		panic("eth client is nil")
 	}
@@ -36,7 +37,7 @@ func GetAPIs(mempoolNode MempoolNode, ethPRC, peptideRPC client.RPC, logger log.
 	apis := []rpc.API{
 		{
 			Namespace: "engine",
-			Service:   newEngineAPI(mempoolNode, ethPRC, peptideRPC, logger),
+			Service:   newEngineAPI(mempoolNode, blockStore, ethPRC, peptideRPC, logger),
 		},
 		{
 			Namespace: "eth",
@@ -56,6 +57,9 @@ type engineServer struct {
 	// mempoolNode contains a reference to the mempool.
 	mempoolNode MempoolNode
 
+	// blockStore contains reference to composite block store implemenation
+	blockStore BlockStore
+
 	// ethRPC is an RPC client for calling into op-geth RPC server.
 	ethRPC client.RPC
 	// peptideRPC is an RPC client for calling into the peptide RPC server (sdk engine).
@@ -65,8 +69,8 @@ type engineServer struct {
 }
 
 // newExecutionEngineAPI returns a new execEngineAPI.
-func newEngineAPI(mempoolNode MempoolNode, ethRPC, peptideRPC client.RPC, logger log.Logger) *engineServer {
-	return &engineServer{mempoolNode, ethRPC, peptideRPC, logger}
+func newEngineAPI(mempoolNode MempoolNode, blockStore BlockStore, ethRPC, peptideRPC client.RPC, logger log.Logger) *engineServer {
+	return &engineServer{mempoolNode, blockStore, ethRPC, peptideRPC, logger}
 }
 
 // TODO(jim): Is not called, forward to V2 which is?
@@ -188,8 +192,8 @@ func (e *engineServer) GetPayloadV1(payloadID eth.PayloadID) (*eth.ExecutionPayl
 func (e *engineServer) GetPayloadV2(payloadID eth.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
 	e.logger.Info("GetPayloadV2", "payload_id", payloadID)
 
-	var result eth.ExecutionPayloadEnvelope
-	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_getPayloadV2", payloadID)
+	var gethResult eth.ExecutionPayloadEnvelope
+	err := e.ethRPC.CallContext(context.TODO(), &gethResult, "engine_getPayloadV2", payloadID)
 
 	// Forward to the abci engine.
 	e.logger.Info("forwarding GetPayloadV2 to abci engine")
@@ -202,8 +206,13 @@ func (e *engineServer) GetPayloadV2(payloadID eth.PayloadID) (*eth.ExecutionPayl
 		e.logger.Info("completed: forwarding GetPayloadV2 to abci engine")
 	}
 
-	e.logger.Info("completed: GetPayloadV2", "error", err, "result", result.ExecutionPayload)
-	return &result, err
+	compositeBlock := eetypes.NewCompositeBlock(gethResult.ExecutionPayload.BlockHash, abciResult.ExecutionPayload.BlockHash)
+	e.blockStore.SaveCompositeBlock(compositeBlock)
+	gethResult.ExecutionPayload.BlockHash = compositeBlock.Hash()
+	e.logger.Info("created composite block:", "combined hash", compositeBlock.Hash(), "gethHash", gethResult.ExecutionPayload.BlockHash, "abciHash", abciResult.ExecutionPayload.BlockHash)
+
+	e.logger.Info("completed: GetPayloadV2", "error", err, "result", gethResult.ExecutionPayload)
+	return &gethResult, err
 }
 
 func (e *engineServer) GetPayloadV3(payloadID eth.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
