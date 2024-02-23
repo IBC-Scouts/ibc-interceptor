@@ -64,7 +64,7 @@ func NewInterceptorNode(config *types.Config) *InterceptorNode {
 	}
 
 	// Add APIs to the RPC server
-	rpcAPIs := api.GetAPIs(node, node, ethRPC, peptideRPC, logger.With("server", "exec_engine_api"))
+	rpcAPIs := api.GetAPIs(node, ethRPC, peptideRPC, logger.With("server", "exec_engine_api"))
 	rpcAPIs = append(rpcAPIs, api.GetCosmosAPI(node, logger.With("server", "cosmos_api")))
 
 	// Create config for the RPC server (address to bind to)

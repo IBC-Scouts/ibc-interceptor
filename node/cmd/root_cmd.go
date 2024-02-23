@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -49,6 +50,8 @@ func startCmd() *cobra.Command {
 				return err
 			}
 			config.PeptideEngineAddr = eeWsUrl
+			// Sleep for a bit before starting the interceptor node.
+			time.Sleep(2 * time.Second)
 
 			gethEngineAddr, err := cmd.Flags().GetString("geth-engine-addr")
 			if err != nil {

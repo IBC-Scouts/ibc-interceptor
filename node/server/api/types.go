@@ -11,6 +11,11 @@ type (
 	Block = eetypes.Block
 )
 
+type Interceptor interface {
+	MempoolNode
+	BlockStore
+}
+
 // MempoolNode allows accessing/modifying/inspecting the mempool.
 type MempoolNode interface {
 	// HasMsgs returns true if the mempool has messages.

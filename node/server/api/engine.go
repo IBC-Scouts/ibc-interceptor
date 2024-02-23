@@ -21,7 +21,7 @@ import (
 )
 
 // TODO(jim): passed by lock.
-func GetAPIs(mempoolNode MempoolNode, blockStore BlockStore, ethPRC, peptideRPC client.RPC, logger log.Logger) []rpc.API {
+func GetAPIs(interceptor Interceptor, ethPRC, peptideRPC client.RPC, logger log.Logger) []rpc.API {
 	if ethPRC == nil {
 		panic("eth client is nil")
 	}
@@ -37,11 +37,11 @@ func GetAPIs(mempoolNode MempoolNode, blockStore BlockStore, ethPRC, peptideRPC 
 	apis := []rpc.API{
 		{
 			Namespace: "engine",
-			Service:   newEngineAPI(mempoolNode, blockStore, ethPRC, peptideRPC, logger),
+			Service:   newEngineAPI(interceptor, ethPRC, peptideRPC, logger),
 		},
 		{
 			Namespace: "eth",
-			Service:   newEthAPI(blockStore, ethPRC, peptideRPC, logger),
+			Service:   newEthAPI(interceptor, ethPRC, peptideRPC, logger),
 		},
 	}
 
@@ -55,11 +55,7 @@ func GetAPIs(mempoolNode MempoolNode, blockStore BlockStore, ethPRC, peptideRPC 
 // required 'eth_' prefixed methods.
 type engineServer struct {
 	// mempoolNode contains a reference to the mempool.
-	mempoolNode MempoolNode
-
-	// blockStore contains reference to composite block store implemenation
-	blockStore BlockStore
-
+	interceptor Interceptor
 	// ethRPC is an RPC client for calling into op-geth RPC server.
 	ethRPC client.RPC
 	// peptideRPC is an RPC client for calling into the peptide RPC server (sdk engine).
@@ -69,8 +65,8 @@ type engineServer struct {
 }
 
 // newExecutionEngineAPI returns a new execEngineAPI.
-func newEngineAPI(mempoolNode MempoolNode, blockStore BlockStore, ethRPC, peptideRPC client.RPC, logger log.Logger) *engineServer {
-	return &engineServer{mempoolNode, blockStore, ethRPC, peptideRPC, logger}
+func newEngineAPI(interceptor Interceptor, ethRPC, peptideRPC client.RPC, logger log.Logger) *engineServer {
+	return &engineServer{interceptor, ethRPC, peptideRPC, logger}
 }
 
 // TODO(jim): Is not called, forward to V2 which is?
@@ -109,25 +105,25 @@ func (e *engineServer) ForkchoiceUpdatedV2(
 	var result eth.ForkchoiceUpdatedResult
 	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_forkchoiceUpdatedV2", fcs, pa)
 
-	e.logger.Info("message mempool status: ", "hasMsgs", e.mempoolNode.HasMsgs())
+	e.logger.Info("message mempool status: ", "hasMsgs", e.interceptor.HasMsgs())
 
-	//if false {
-	// Forward to the abci engine.
-	e.logger.Info("forwarding ForkchoiceUpdatedV2 to abci engine")
+	if false {
+		// Forward to the abci engine.
+		e.logger.Info("forwarding ForkchoiceUpdatedV2 to abci engine")
 
-	var peptideResult eth.ForkchoiceUpdatedResult
-	err = e.peptideRPC.CallContext(context.TODO(), &peptideResult, "engine_forkchoiceUpdatedV2", fcs, pa)
-	if err != nil {
-		e.logger.Error("failed to forward ForkchoiceUpdatedV2 to abci engine", "error", err)
-	} else {
-		e.logger.Info("completed: forwarding ForkchoiceUpdatedV2 to abci engine")
+		var peptideResult eth.ForkchoiceUpdatedResult
+		err = e.peptideRPC.CallContext(context.TODO(), &peptideResult, "engine_forkchoiceUpdatedV2", fcs, pa)
+		if err != nil {
+			e.logger.Error("failed to forward ForkchoiceUpdatedV2 to abci engine", "error", err)
+		} else {
+			e.logger.Info("completed: forwarding ForkchoiceUpdatedV2 to abci engine")
+		}
+
 	}
 
-	//}
-
 	// TODO(jim): Crude at this point.
-	if e.mempoolNode.HasMsgs() {
-		msgs := e.mempoolNode.GetMsgs()
+	if e.interceptor.HasMsgs() {
+		msgs := e.interceptor.GetMsgs()
 
 		for _, msg := range msgs {
 			e.logger.Info("forwarding a message to abci mempool", "msg", msg)
@@ -195,22 +191,23 @@ func (e *engineServer) GetPayloadV2(payloadID eth.PayloadID) (*eth.ExecutionPayl
 	var gethResult eth.ExecutionPayloadEnvelope
 	err := e.ethRPC.CallContext(context.TODO(), &gethResult, "engine_getPayloadV2", payloadID)
 
-	// Forward to the abci engine.
-	e.logger.Info("forwarding GetPayloadV2 to abci engine")
+	if false {
+		// Forward to the abci engine.
+		e.logger.Info("forwarding GetPayloadV2 to abci engine")
 
-	var abciResult eth.ExecutionPayloadEnvelope
-	err = e.peptideRPC.CallContext(context.TODO(), &abciResult, "engine_getPayloadV2", payloadID)
-	if err != nil {
-		e.logger.Error("failed to forward GetPayloadV2 to abci engine", "error", err)
-	} else {
-		e.logger.Info("completed: forwarding GetPayloadV2 to abci engine")
+		var abciResult eth.ExecutionPayloadEnvelope
+		err = e.peptideRPC.CallContext(context.TODO(), &abciResult, "engine_getPayloadV2", payloadID)
+		if err != nil {
+			e.logger.Error("failed to forward GetPayloadV2 to abci engine", "error", err)
+		} else {
+			e.logger.Info("completed: forwarding GetPayloadV2 to abci engine")
+		}
+
+		compositeBlock := eetypes.NewCompositeBlock(gethResult.ExecutionPayload.BlockHash, abciResult.ExecutionPayload.BlockHash)
+		e.interceptor.SaveCompositeBlock(compositeBlock)
+		gethResult.ExecutionPayload.BlockHash = compositeBlock.Hash()
+		e.logger.Info("created composite block:", "combined hash", compositeBlock.Hash(), "gethHash", gethResult.ExecutionPayload.BlockHash, "abciHash", abciResult.ExecutionPayload.BlockHash)
 	}
-
-	compositeBlock := eetypes.NewCompositeBlock(gethResult.ExecutionPayload.BlockHash, abciResult.ExecutionPayload.BlockHash)
-	e.blockStore.SaveCompositeBlock(compositeBlock)
-	gethResult.ExecutionPayload.BlockHash = compositeBlock.Hash()
-	e.logger.Info("created composite block:", "combined hash", compositeBlock.Hash(), "gethHash", gethResult.ExecutionPayload.BlockHash, "abciHash", abciResult.ExecutionPayload.BlockHash)
-
 	e.logger.Info("completed: GetPayloadV2", "error", err, "result", gethResult.ExecutionPayload)
 	return &gethResult, err
 }
@@ -265,17 +262,18 @@ func (e *engineServer) NewPayloadV2(payload *eth.ExecutionPayload) (*eth.Payload
 	var gethResult eth.PayloadStatusV1
 	err := e.ethRPC.CallContext(context.TODO(), &gethResult, "engine_newPayloadV2", payload)
 
-	// Forward to the abci engine.
-	e.logger.Info("forwarding NewPayloadV2 to abci engine")
+	if false {
+		// Forward to the abci engine.
+		e.logger.Info("forwarding NewPayloadV2 to abci engine")
 
-	var abciResult eth.PayloadStatusV1
-	err = e.peptideRPC.CallContext(context.TODO(), &abciResult, "engine_newPayloadV2", payload)
-	if err != nil {
-		e.logger.Error("failed to forward NewPayloadV2 to abci engine", "error", err)
-	} else {
-		e.logger.Info("completed: forwarding NewPayloadV2 to abci engine")
+		var abciResult eth.PayloadStatusV1
+		err = e.peptideRPC.CallContext(context.TODO(), &abciResult, "engine_newPayloadV2", payload)
+		if err != nil {
+			e.logger.Error("failed to forward NewPayloadV2 to abci engine", "error", err)
+		} else {
+			e.logger.Info("completed: forwarding NewPayloadV2 to abci engine")
+		}
 	}
-
 	e.logger.Info("completed: NewPayloadV2", "error", err, "result", &gethResult)
 	return &gethResult, err
 }
@@ -326,6 +324,7 @@ func (e *ethServer) ChainId() (hexutil.Big, error) { // nolint: revive, styleche
 	var id hexutil.Big
 	err := e.ethRPC.CallContext(context.TODO(), &id, "eth_chainId")
 
+	e.logger.Info("completed: ChainID", "id", id, "error", err)
 	return id, err
 }
 
@@ -337,15 +336,27 @@ func (e *ethServer) GetBlockByNumber(id any, fullTx bool) (map[string]any, error
 
 	var gethResult map[string]any
 	err := e.ethRPC.CallContext(context.TODO(), &gethResult, "eth_getBlockByNumber", id, fullTx)
+	if err != nil {
+		e.logger.Error("failed to call geth", "error", err)
+		return nil, err
+	}
 
 	var abciResult map[string]any
 	err = e.peptideRPC.CallContext(context.TODO(), &abciResult, "eth_getBlockByNumber", id, fullTx)
+	if err != nil {
+		e.logger.Error("failed to call abci", "error", err)
+		return nil, err
+	}
 
-	//	gethHash := common.HexToHash(gethResult["hash"].(string))
-	//	abciHash := common.HexToHash(abciResult["hash"].(string))
-	//	compositeBlock := types.NewCompositeBlock(gethHash, abciHash)
-	//	gethResult["hash"] = compositeBlock.Hash()
+	// Combine the hashes and store the composite block, return the composite hash as the geth["hash"] field.
+	// See monomers ToEthBlock for fields populated in the abci call.
+	gethHash := common.HexToHash(gethResult["hash"].(string))
+	abciHash := common.HexToHash(abciResult["hash"].(string))
+	compositeBlock := eetypes.NewCompositeBlock(gethHash, abciHash)
+	gethResult["hash"] = compositeBlock.Hash()
 
+	e.logger.Info("composite block", "compositeHash", compositeBlock.Hash().Hex())
+	e.logger.Info("completed: GetBlockByNumber", "result", gethResult)
 	return gethResult, err
 }
 
@@ -364,7 +375,6 @@ func (e *ethServer) GetBlockByHash(id any, fullTx bool) (map[string]any, error) 
 	//	err = e.peptideRPC.CallContext(context.TODO(), &abciResult, "eth_getBlockByHash", compositeBlock.ABCIHash, fullTx)
 
 	e.logger.Info("completed: GetBlockByHash", "result", gethResult)
-
 	return gethResult, err
 }
 
