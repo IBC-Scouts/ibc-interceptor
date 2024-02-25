@@ -77,12 +77,13 @@ func (e *engineServer) ForkchoiceUpdatedV2(
 	e.logger.Info("trying: ForkchoiceUpdatedV2", "abciFcs", abciFcs, "gethFcs", gethFcs, "pa", pa)
 
 	var gethResult eth.ForkchoiceUpdatedResult
-	err := e.ethRPC.CallContext(context.TODO(), &gethResult, "engine_forkchoiceUpdatedV2", fcs, pa)
+	err := e.ethRPC.CallContext(context.TODO(), &gethResult, "engine_forkchoiceUpdatedV2", gethFcs, pa)
 	if err != nil {
+		// TODO(jim): What do we do if geth for some reason errs and we dont?
 		e.logger.Error("failed to forward ForkchoiceUpdatedV2 to geth engine", "error", err)
+		return nil, err
 	}
-
-	e.logger.Info("message mempool status: ", "hasMsgs", e.interceptor.HasMsgs())
+	e.logger.Info("success in forwarding ForkchoiceUpdatedV2 to geth engine", "result", gethResult)
 
 	// Forward to the abci engine.
 	e.logger.Info("forwarding ForkchoiceUpdatedV2 to abci engine")
@@ -92,8 +93,10 @@ func (e *engineServer) ForkchoiceUpdatedV2(
 	if err != nil {
 		e.logger.Error("failed to forward ForkchoiceUpdatedV2 to abci engine", "error", err)
 	}
+	e.logger.Info("success in forwarding ForkchoiceUpdatedV2 to abci engine", "result", peptideResult)
 
 	// TODO(jim): Crude at this point.
+	e.logger.Info("message mempool status: ", "hasMsgs", e.interceptor.HasMsgs())
 	if e.interceptor.HasMsgs() {
 		msgs := e.interceptor.GetMsgs()
 
@@ -119,53 +122,71 @@ func (e *engineServer) ForkchoiceUpdatedV2(
 }
 
 func (e *engineServer) GetPayloadV2(payloadID eth.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
+	// Get payload for each of the engines.
+	compositePayload := e.interceptor.GetCompositePayload(payloadID)
+	abciPayload, gethPayload := compositePayload.ABCIPayload, compositePayload.GethPayload
 	e.logger.Info("GetPayloadV2", "payload_id", payloadID)
 
 	var gethResult eth.ExecutionPayloadEnvelope
-	err := e.ethRPC.CallContext(context.TODO(), &gethResult, "engine_getPayloadV2", payloadID)
-
-	if false {
-		// Forward to the abci engine.
-		e.logger.Info("forwarding GetPayloadV2 to abci engine")
-
-		var abciResult eth.ExecutionPayloadEnvelope
-		err = e.peptideRPC.CallContext(context.TODO(), &abciResult, "engine_getPayloadV2", payloadID)
-		if err != nil {
-			e.logger.Error("failed to forward GetPayloadV2 to abci engine", "error", err)
-		} else {
-			e.logger.Info("completed: forwarding GetPayloadV2 to abci engine")
-		}
-
-		compositeBlock := eetypes.NewCompositeBlock(gethResult.ExecutionPayload.BlockHash, abciResult.ExecutionPayload.BlockHash)
-		e.interceptor.SaveCompositeBlock(compositeBlock)
-		gethResult.ExecutionPayload.BlockHash = compositeBlock.Hash()
-		e.logger.Info("created composite block:", "combined hash", compositeBlock.Hash(), "gethHash", gethResult.ExecutionPayload.BlockHash, "abciHash", abciResult.ExecutionPayload.BlockHash)
+	err := e.ethRPC.CallContext(context.TODO(), &gethResult, "engine_getPayloadV2", gethPayload)
+	if err != nil {
+		// TODO(jim): What do we do if geth for some reason errs and we dont?
+		e.logger.Error("failed to forward GetPayloadV2 to geth engine", "error", err)
+		return nil, err
 	}
 
-	// TODO(jim): Combine the hashes for blockHash in the execution payload.
+	// Forward to the abci engine.
+	e.logger.Info("forwarding GetPayloadV2 to abci engine")
+
+	var abciResult eth.ExecutionPayloadEnvelope
+	err = e.peptideRPC.CallContext(context.TODO(), &abciResult, "engine_getPayloadV2", abciPayload)
+	if err != nil {
+		e.logger.Error("failed to forward GetPayloadV2 to abci engine", "error", err)
+	}
+
+	compositeBlock := eetypes.NewCompositeBlock(gethResult.ExecutionPayload.BlockHash, abciResult.ExecutionPayload.BlockHash)
+	e.interceptor.SaveCompositeBlock(compositeBlock)
+	gethResult.ExecutionPayload.BlockHash = compositeBlock.Hash()
+	e.logger.Info("created composite block:", "combined hash", compositeBlock.Hash(), "gethHash", gethResult.ExecutionPayload.BlockHash, "abciHash", abciResult.ExecutionPayload.BlockHash)
+
 	e.logger.Info("completed: GetPayloadV2", "error", err, "result", gethResult.ExecutionPayload)
 	return &gethResult, err
 }
 
-// TODO(jim): Decompose the blockHash as set in the result for GetPayloadV2
+// TODO(jim): Decompose the blockHash + parentHash as set in the result for GetPayloadV2
 func (e *engineServer) NewPayloadV2(payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
+	compositeBlockHash := e.interceptor.GetCompositeBlock(payload.BlockHash)
+	compositeParentHash := e.interceptor.GetCompositeBlock(payload.ParentHash)
+
 	e.logger.Info("trying: NewPayloadV2", "payload.ID", payload.ID(), "blockHash", payload.BlockHash.Hex())
+
+	payload.BlockHash = compositeBlockHash.GethHash
+	payload.ParentHash = compositeParentHash.GethHash
 
 	var gethResult eth.PayloadStatusV1
 	err := e.ethRPC.CallContext(context.TODO(), &gethResult, "engine_newPayloadV2", payload)
-
-	if false {
-		// Forward to the abci engine.
-		e.logger.Info("forwarding NewPayloadV2 to abci engine")
-
-		var abciResult eth.PayloadStatusV1
-		err = e.peptideRPC.CallContext(context.TODO(), &abciResult, "engine_newPayloadV2", payload)
-		if err != nil {
-			e.logger.Error("failed to forward NewPayloadV2 to abci engine", "error", err)
-		} else {
-			e.logger.Info("completed: forwarding NewPayloadV2 to abci engine")
-		}
+	if err != nil {
+		// TODO(jim): What do we do if geth for some reason errs and we dont?
+		e.logger.Error("failed to forward NewPayloadV2 to geth engine", "error", err)
+		return nil, err
 	}
+
+	e.logger.Info("forwarding NewPayloadV2 to abci engine")
+
+	// TODO(jim): Is this re-use safe?
+	payload.BlockHash = compositeBlockHash.ABCIHash
+	payload.ParentHash = compositeParentHash.ABCIHash
+	var abciResult eth.PayloadStatusV1
+	err = e.peptideRPC.CallContext(context.TODO(), &abciResult, "engine_newPayloadV2", payload)
+	if err != nil {
+		e.logger.Error("failed to forward NewPayloadV2 to abci engine", "error", err)
+	}
+
+	// Combine latestValidHash and save it.
+	compositeLatestValidHash := eetypes.NewCompositeBlock(*gethResult.LatestValidHash, *abciResult.LatestValidHash)
+	e.interceptor.SaveCompositeBlock(compositeLatestValidHash)
+	compositeHash := compositeLatestValidHash.Hash()
+	gethResult.LatestValidHash = &compositeHash
 
 	e.logger.Info("completed: NewPayloadV2", "error", err, "result", &gethResult)
 	return &gethResult, err
@@ -209,13 +230,16 @@ func (e *ethServer) GetBlockByNumber(id any, fullTx bool) (map[string]any, error
 	err := e.ethRPC.CallContext(context.TODO(), &gethResult, "eth_getBlockByNumber", id, fullTx)
 	if err != nil {
 		e.logger.Error("failed to call geth", "error", err)
+		// TODO(jim): What do we do if geth for some reason errs and we dont? This happens when
+		// GetBlockByNumber is called with a label of 'finalized'. For some reason ABCI engine
+		// does _not_ return an error.
+		return nil, err
 	}
 
 	var abciResult map[string]any
 	err = e.peptideRPC.CallContext(context.TODO(), &abciResult, "eth_getBlockByNumber", id, fullTx)
 	if err != nil {
 		e.logger.Error("failed to call abci", "error", err)
-		return nil, err
 	}
 
 	// Combine the hashes and store the composite block, return the composite hash as the geth["hash"] field.
