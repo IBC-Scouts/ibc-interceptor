@@ -61,6 +61,7 @@ func NewInterceptorNode(config *types.Config) *InterceptorNode {
 		logger:     logger,
 		ethRPC:     ethRPC,
 		peptideRPC: peptideRPC,
+		blockStore: make(map[common.Hash]eetypes.CompositeBlock),
 	}
 
 	// Add APIs to the RPC server
