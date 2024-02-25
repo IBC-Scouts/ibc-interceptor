@@ -15,6 +15,7 @@ type (
 type Interceptor interface {
 	MempoolNode
 	BlockStore
+	PayloadStore
 }
 
 // MempoolNode allows accessing/modifying/inspecting the mempool.
@@ -33,6 +34,11 @@ type MempoolNode interface {
 type BlockStore interface {
 	GetCompositeBlock(common.Hash) eetypes.CompositeBlock
 	SaveCompositeBlock(eetypes.CompositeBlock)
+}
+
+type PayloadStore interface {
+	GetCompositePayload(eth.PayloadID) eetypes.CompositePayload
+	SaveCompositePayload(eetypes.CompositePayload)
 }
 
 // TODO(jim): Ethereum JSON/RPC dictates responses should either return 0, 1 (response or error) or 2 (response and error).

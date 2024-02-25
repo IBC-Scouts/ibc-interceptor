@@ -5,6 +5,7 @@ import (
 
 	cmttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum-optimism/optimism/op-service/client"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	nodeclient "github.com/ibc-scouts/ibc-interceptor/node/client"
 	"github.com/ibc-scouts/ibc-interceptor/node/server"
@@ -26,8 +27,9 @@ type InterceptorNode struct {
 
 	// msgMempool is a basic Mempool to be used in OpApp.
 	// TODO(jim): Might need to make into a full fledged type to support more complex mempool operations.
-	msgMempool [][]byte
-	blockStore map[common.Hash]eetypes.CompositeBlock
+	msgMempool   [][]byte
+	blockStore   map[common.Hash]eetypes.CompositeBlock
+	payloadStore map[eth.PayloadID]eetypes.CompositePayload
 
 	logger types.CompositeLogger
 	lock   sync.RWMutex
@@ -58,10 +60,11 @@ func NewInterceptorNode(config *types.Config) *InterceptorNode {
 	}
 
 	node := &InterceptorNode{
-		logger:     logger,
-		ethRPC:     ethRPC,
-		peptideRPC: peptideRPC,
-		blockStore: make(map[common.Hash]eetypes.CompositeBlock),
+		logger:       logger,
+		ethRPC:       ethRPC,
+		peptideRPC:   peptideRPC,
+		blockStore:   make(map[common.Hash]eetypes.CompositeBlock),
+		payloadStore: make(map[eth.PayloadID]eetypes.CompositePayload),
 	}
 
 	// Add APIs to the RPC server
@@ -138,4 +141,15 @@ func (n *InterceptorNode) GetCompositeBlock(blockHash common.Hash) eetypes.Compo
 
 func (n *InterceptorNode) SaveCompositeBlock(compositeBlock eetypes.CompositeBlock) {
 	n.blockStore[compositeBlock.Hash()] = compositeBlock
+}
+
+// -- PayloadStore interface --
+
+// GetCompositePayload returns a composite payload given the combined payload hash
+func (n *InterceptorNode) GetCompositePayload(compositePayload eth.PayloadID) eetypes.CompositePayload {
+	return n.payloadStore[compositePayload]
+}
+
+func (n *InterceptorNode) SaveCompositePayload(compositePayload eetypes.CompositePayload) {
+	n.payloadStore[*compositePayload.Payload()] = compositePayload
 }

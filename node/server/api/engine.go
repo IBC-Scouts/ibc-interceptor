@@ -103,8 +103,18 @@ func (e *engineServer) ForkchoiceUpdatedV2(
 		}
 	}
 
+	// Combine payload ids and save them.
+	compositePayload := eetypes.NewCompositePayload(*gethResult.PayloadID, *peptideResult.PayloadID)
+	e.interceptor.SaveCompositePayload(compositePayload)
+	gethResult.PayloadID = compositePayload.Payload()
+
+	// LatestValidHash of the Payload status should be our composite hash.
+	compositeLatestValidHash := eetypes.NewCompositeBlock(*gethResult.PayloadStatus.LatestValidHash, *peptideResult.PayloadStatus.LatestValidHash)
+	e.interceptor.SaveCompositeBlock(compositeLatestValidHash)
+	compositeHash := compositeLatestValidHash.Hash()
+	gethResult.PayloadStatus.LatestValidHash = &compositeHash
+
 	e.logger.Info("completed: ForkchoiceUpdatedV2", "error", err, "result", gethResult)
-	// TODO(jim): Make a composite payload a la block store.
 	return &gethResult, err
 }
 

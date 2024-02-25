@@ -1,8 +1,11 @@
 package types
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"sync"
+
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
 type PayloadStore interface {
@@ -72,4 +75,27 @@ func (p *pstore) RollbackToHeight(height int64) error {
 	p.payloads = make(map[PayloadID]*Payload)
 
 	return nil
+}
+
+// -------------- Composite Payload --------------
+
+type CompositePayload struct {
+	GethPayload eth.PayloadID
+	ABCIPayload eth.PayloadID
+}
+
+func NewCompositePayload(gethPayload, abciPayload eth.PayloadID) CompositePayload {
+	return CompositePayload{
+		GethPayload: gethPayload,
+		ABCIPayload: abciPayload,
+	}
+}
+
+func (p CompositePayload) Payload() *eth.PayloadID {
+	s := p.GethPayload.String() + p.ABCIPayload.String()
+
+	hash := sha256.Sum256([]byte(s))
+	payloadId := eth.PayloadID(hash[:8])
+
+	return &payloadId
 }
