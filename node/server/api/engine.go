@@ -100,25 +100,24 @@ func (e *engineServer) ForkchoiceUpdatedV2(
 	fcs eth.ForkchoiceState,
 	pa *eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
-	e.logger.Info("trying: ForkchoiceUpdatedV2", "fcs", fcs, "pa", pa)
+	abciFcs, gethFcs := EngineForkStates(e.interceptor, fcs)
+	e.logger.Info("trying: ForkchoiceUpdatedV2", "abciFcs", abciFcs, "gethFcs", gethFcs, "pa", pa)
 
-	var result eth.ForkchoiceUpdatedResult
-	err := e.ethRPC.CallContext(context.TODO(), &result, "engine_forkchoiceUpdatedV2", fcs, pa)
+	var gethResult eth.ForkchoiceUpdatedResult
+	err := e.ethRPC.CallContext(context.TODO(), &gethResult, "engine_forkchoiceUpdatedV2", gethFcs, pa)
+	if err != nil {
+		e.logger.Error("failed to forward ForkchoiceUpdatedV2 to geth engine", "error", err)
+	}
 
 	e.logger.Info("message mempool status: ", "hasMsgs", e.interceptor.HasMsgs())
 
-	if false {
-		// Forward to the abci engine.
-		e.logger.Info("forwarding ForkchoiceUpdatedV2 to abci engine")
+	// Forward to the abci engine.
+	e.logger.Info("forwarding ForkchoiceUpdatedV2 to abci engine")
 
-		var peptideResult eth.ForkchoiceUpdatedResult
-		err = e.peptideRPC.CallContext(context.TODO(), &peptideResult, "engine_forkchoiceUpdatedV2", fcs, pa)
-		if err != nil {
-			e.logger.Error("failed to forward ForkchoiceUpdatedV2 to abci engine", "error", err)
-		} else {
-			e.logger.Info("completed: forwarding ForkchoiceUpdatedV2 to abci engine")
-		}
-
+	var peptideResult eth.ForkchoiceUpdatedResult
+	err = e.peptideRPC.CallContext(context.TODO(), &peptideResult, "engine_forkchoiceUpdatedV2", abciFcs, pa)
+	if err != nil {
+		e.logger.Error("failed to forward ForkchoiceUpdatedV2 to abci engine", "error", err)
 	}
 
 	// TODO(jim): Crude at this point.
@@ -131,9 +130,10 @@ func (e *engineServer) ForkchoiceUpdatedV2(
 		}
 	}
 
-	e.logger.Info("completed: ForkchoiceUpdatedV2", "error", err, "result", result)
+	e.logger.Info("completed: ForkchoiceUpdatedV2", "error", err, "result", gethResult)
 
-	return &result, err
+	// TODO(jim): Make a composite payload a la block store.
+	return &gethResult, err
 }
 
 // TODO(jim): Isn't called in current version of op-node we depend on but _is_ called in version
@@ -208,6 +208,8 @@ func (e *engineServer) GetPayloadV2(payloadID eth.PayloadID) (*eth.ExecutionPayl
 		gethResult.ExecutionPayload.BlockHash = compositeBlock.Hash()
 		e.logger.Info("created composite block:", "combined hash", compositeBlock.Hash(), "gethHash", gethResult.ExecutionPayload.BlockHash, "abciHash", abciResult.ExecutionPayload.BlockHash)
 	}
+
+	// TODO(jim): Combine the hashes for blockHash in the execution payload.
 	e.logger.Info("completed: GetPayloadV2", "error", err, "result", gethResult.ExecutionPayload)
 	return &gethResult, err
 }
@@ -256,6 +258,7 @@ func (e *engineServer) NewPayloadV1(payload *eth.ExecutionPayload) (*eth.Payload
 	return &result, err
 }
 
+// TODO(jim): Decompose the blockHash as set in the result for GetPayloadV2
 func (e *engineServer) NewPayloadV2(payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
 	e.logger.Info("trying: NewPayloadV2", "payload.ID", payload.ID(), "blockHash", payload.BlockHash.Hex())
 
@@ -353,6 +356,8 @@ func (e *ethServer) GetBlockByNumber(id any, fullTx bool) (map[string]any, error
 	gethHash := common.HexToHash(gethResult["hash"].(string))
 	abciHash := common.HexToHash(abciResult["hash"].(string))
 	compositeBlock := eetypes.NewCompositeBlock(gethHash, abciHash)
+	e.blockStore.SaveCompositeBlock(compositeBlock)
+
 	gethResult["hash"] = compositeBlock.Hash()
 
 	e.logger.Info("composite block", "compositeHash", compositeBlock.Hash().Hex())
