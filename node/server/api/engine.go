@@ -107,7 +107,7 @@ func (e *engineServer) ForkchoiceUpdatedV2(
 	}
 
 	// Combine payload ids and save them.
-	compositePayload := eetypes.NewCompositePayload(*gethResult.PayloadID, *peptideResult.PayloadID)
+	compositePayload := eetypes.NewCompositePayload(gethResult.PayloadID, peptideResult.PayloadID)
 	e.interceptor.SaveCompositePayload(compositePayload)
 	gethResult.PayloadID = compositePayload.Payload()
 
@@ -125,7 +125,7 @@ func (e *engineServer) GetPayloadV2(payloadID eth.PayloadID) (*eth.ExecutionPayl
 	// Get payload for each of the engines.
 	compositePayload := e.interceptor.GetCompositePayload(payloadID)
 	abciPayload, gethPayload := compositePayload.ABCIPayload, compositePayload.GethPayload
-	e.logger.Info("GetPayloadV2", "payload_id", payloadID)
+	e.logger.Info("GetPayloadV2", "payload_id", payloadID, "abciPayload", abciPayload, "gethPayload", gethPayload)
 
 	var gethResult eth.ExecutionPayloadEnvelope
 	err := e.ethRPC.CallContext(context.TODO(), &gethResult, "engine_getPayloadV2", gethPayload)
@@ -134,6 +134,7 @@ func (e *engineServer) GetPayloadV2(payloadID eth.PayloadID) (*eth.ExecutionPayl
 		e.logger.Error("failed to forward GetPayloadV2 to geth engine", "error", err)
 		return nil, err
 	}
+	e.logger.Info("success in forwarding GetPayloadV2 to geth engine", "result", gethResult)
 
 	// Forward to the abci engine.
 	e.logger.Info("forwarding GetPayloadV2 to abci engine")
@@ -143,11 +144,17 @@ func (e *engineServer) GetPayloadV2(payloadID eth.PayloadID) (*eth.ExecutionPayl
 	if err != nil {
 		e.logger.Error("failed to forward GetPayloadV2 to abci engine", "error", err)
 	}
+	e.logger.Info("success in forwarding GetPayloadV2 to abci engine", "result", abciResult)
 
 	compositeBlock := eetypes.NewCompositeBlock(gethResult.ExecutionPayload.BlockHash, abciResult.ExecutionPayload.BlockHash)
 	e.interceptor.SaveCompositeBlock(compositeBlock)
 	gethResult.ExecutionPayload.BlockHash = compositeBlock.Hash()
 	e.logger.Info("created composite block:", "combined hash", compositeBlock.Hash(), "gethHash", gethResult.ExecutionPayload.BlockHash, "abciHash", abciResult.ExecutionPayload.BlockHash)
+
+	compositeParent := eetypes.NewCompositeBlock(gethResult.ExecutionPayload.ParentHash, abciResult.ExecutionPayload.ParentHash)
+	e.interceptor.SaveCompositeBlock(compositeParent)
+	gethResult.ExecutionPayload.ParentHash = compositeParent.Hash()
+	e.logger.Info("created composite parent:", "combined hash", compositeParent.Hash(), "gethHash", gethResult.ExecutionPayload.ParentHash, "abciHash", abciResult.ExecutionPayload.ParentHash)
 
 	e.logger.Info("completed: GetPayloadV2", "error", err, "result", gethResult.ExecutionPayload)
 	return &gethResult, err
@@ -260,12 +267,20 @@ func (e *ethServer) GetBlockByNumber(id any, fullTx bool) (map[string]any, error
 func (e *ethServer) GetBlockByHash(id any, fullTx bool) (map[string]any, error) {
 	e.logger.Info("trying: GetBlockByHash", "id", id)
 
-	//	hash := id.([]byte)
-	//	compositeBlock := e.blockStore.GetCompositeBlock(common.BytesToHash(hash))
+	hash := common.Hash{}
+	switch id := id.(type) {
+	case string:
+		hash = common.HexToHash(id)
+	case []byte:
+		hash = common.BytesToHash(id)
+	default:
+		e.logger.Error("invalid type for id", "id", id)
+	}
+	compositeBlock := e.blockStore.GetCompositeBlock(hash)
 
 	var gethResult map[string]any
-	//	err := e.ethRPC.CallContext(context.TODO(), &gethResult, "eth_getBlockByHash", compositeBlock.GethHash, fullTx)
-	err := e.ethRPC.CallContext(context.TODO(), &gethResult, "eth_getBlockByHash", id, fullTx)
+	err := e.ethRPC.CallContext(context.TODO(), &gethResult, "eth_getBlockByHash", compositeBlock.GethHash, fullTx)
+	// err := e.ethRPC.CallContext(context.TODO(), &gethResult, "eth_getBlockByHash", id, fullTx)
 
 	//	var abciResult map[string]any
 	//	err = e.peptideRPC.CallContext(context.TODO(), &abciResult, "eth_getBlockByHash", compositeBlock.ABCIHash, fullTx)

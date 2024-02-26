@@ -80,11 +80,12 @@ func (p *pstore) RollbackToHeight(height int64) error {
 // -------------- Composite Payload --------------
 
 type CompositePayload struct {
-	GethPayload eth.PayloadID
-	ABCIPayload eth.PayloadID
+	// NOTE!: Both payloads may be nil.
+	GethPayload *eth.PayloadID
+	ABCIPayload *eth.PayloadID
 }
 
-func NewCompositePayload(gethPayload, abciPayload eth.PayloadID) CompositePayload {
+func NewCompositePayload(gethPayload, abciPayload *eth.PayloadID) CompositePayload {
 	return CompositePayload{
 		GethPayload: gethPayload,
 		ABCIPayload: abciPayload,
@@ -92,7 +93,15 @@ func NewCompositePayload(gethPayload, abciPayload eth.PayloadID) CompositePayloa
 }
 
 func (p CompositePayload) Payload() *eth.PayloadID {
-	s := p.GethPayload.String() + p.ABCIPayload.String()
+	// NOTE!: Guarantees uniqueness, no?
+	s := ""
+	if p.GethPayload != nil {
+		s = p.GethPayload.String()
+	}
+
+	if p.ABCIPayload != nil {
+		s = p.ABCIPayload.String()
+	}
 
 	hash := sha256.Sum256([]byte(s))
 	payloadId := eth.PayloadID(hash[:8])
