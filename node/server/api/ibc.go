@@ -1,27 +1,31 @@
 package api
 
 import (
+	"context"
+
 	"github.com/cometbft/cometbft/libs/log"
 	channeltypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-func GetCosmosAPI(mempoolNode MempoolNode, logger log.Logger) rpc.API {
+func GetCosmosAPI(mempoolNode MempoolNode, peptideRPC client.RPC, logger log.Logger) rpc.API {
 	return rpc.API{
 		Namespace: "cosmos",
-		Service:   newCosmosAPI(mempoolNode, logger),
+		Service:   newCosmosAPI(mempoolNode, peptideRPC, logger),
 	}
 }
 
 // cosmosServer is the API for the underlying cosmos app.
 type cosmosServer struct {
 	mempoolNode MempoolNode
+	peptideRPC client.RPC
 	logger      log.Logger
 }
 
 // newCosmosAPI returns a new cosmosServer.
-func newCosmosAPI(mempoolNode MempoolNode, logger log.Logger) *cosmosServer {
-	return &cosmosServer{mempoolNode, logger}
+func newCosmosAPI(mempoolNode MempoolNode, peptideRPC client.RPC, logger log.Logger) *cosmosServer {
+	return &cosmosServer{mempoolNode, peptideRPC, logger}
 }
 
 /* 'cosmos_' Namespace server methods:
@@ -101,6 +105,14 @@ func (e *cosmosServer) SendTransaction(tx []byte) (SendCosmosTxResult, error) {
 
 	// Try and parse it as a cm and dump it in our own mempool. When we get a forkchoiceupdate
 	// call, we forward it to the peptide app (by another rpc call, not abci).
+
+	var result bool
+	err := e.peptideRPC.CallContext(context.TODO(), &result, "intercept_addTxToMempool", tx)
+	if err != nil {
+		e.logger.Error("forward SendTransaction to abci engine", "error", err)
+	}
+
+	e.logger.Info("success in forwarding SendTransaction to abci engine", "result", result)
 
 	e.logger.Info("completed: SendTransaction")
 	return SendCosmosTxResult{}, nil
