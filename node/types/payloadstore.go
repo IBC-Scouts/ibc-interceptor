@@ -100,7 +100,7 @@ func (p CompositePayload) Payload() *eth.PayloadID {
 	}
 
 	if p.ABCIPayload != nil {
-		s = p.ABCIPayload.String()
+		s += p.ABCIPayload.String()
 	}
 
 	hash := sha256.Sum256([]byte(s))

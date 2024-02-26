@@ -280,10 +280,20 @@ func (e *ethServer) GetBlockByHash(id any, fullTx bool) (map[string]any, error) 
 
 	var gethResult map[string]any
 	err := e.ethRPC.CallContext(context.TODO(), &gethResult, "eth_getBlockByHash", compositeBlock.GethHash, fullTx)
-	// err := e.ethRPC.CallContext(context.TODO(), &gethResult, "eth_getBlockByHash", id, fullTx)
+	if err != nil {
+		e.logger.Error("failed to call geth", "error", err)
+		return nil, err
+	}
 
-	//	var abciResult map[string]any
-	//	err = e.peptideRPC.CallContext(context.TODO(), &abciResult, "eth_getBlockByHash", compositeBlock.ABCIHash, fullTx)
+	// NOTE: Do we even need to do forwarding? We don't use this block currently.
+	var abciResult map[string]any
+	err = e.peptideRPC.CallContext(context.TODO(), &abciResult, "eth_getBlockByHash", compositeBlock.ABCIHash, fullTx)
+	if err != nil {
+		e.logger.Error("failed to call abci", "error", err)
+		return nil, err
+	}
+
+	gethResult["hash"] = compositeBlock.Hash()
 
 	e.logger.Info("completed: GetBlockByHash", "result", gethResult)
 	return gethResult, err
