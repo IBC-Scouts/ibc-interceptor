@@ -3,10 +3,13 @@ package node
 import (
 	"sync"
 
-	cmttypes "github.com/cometbft/cometbft/types"
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum/common"
+
+	cmttypes "github.com/cometbft/cometbft/types"
+
 	nodeclient "github.com/ibc-scouts/ibc-interceptor/node/client"
 	"github.com/ibc-scouts/ibc-interceptor/node/server"
 	"github.com/ibc-scouts/ibc-interceptor/node/server/api"
@@ -36,9 +39,13 @@ type InterceptorNode struct {
 
 	// TODO(jim): Unused after calling into peptide server. Might become relevant at some point
 	// so leaving it in for now.
-	ps          eetypes.PayloadStore
-	txMempool   cmttypes.Txs
-	bs          eetypes.BlockStore
+	//nolint:unused
+	ps eetypes.PayloadStore
+	//nolint:unused
+	txMempool cmttypes.Txs
+	//nolint:unused
+	bs eetypes.BlockStore
+	//nolint:unused
 	latestBlock *eetypes.Block
 }
 

@@ -104,7 +104,7 @@ func (p CompositePayload) Payload() *eth.PayloadID {
 	}
 
 	hash := sha256.Sum256([]byte(s))
-	payloadId := eth.PayloadID(hash[:8])
+	payloadID := eth.PayloadID(hash[:8])
 
-	return &payloadId
+	return &payloadID
 }

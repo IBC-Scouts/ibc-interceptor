@@ -2,8 +2,10 @@
 package api
 
 import (
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+
 	eetypes "github.com/ibc-scouts/ibc-interceptor/node/types"
 )
 
@@ -47,20 +49,20 @@ type SendCosmosTxResult struct{}
 
 // EngineForkStates takes in the interceptor fork state and the blockstore and creates two states for abci and
 // geth.
-func EngineForkStates(blockStore BlockStore, interceptorForkState eth.ForkchoiceState) (abci eth.ForkchoiceState, geth eth.ForkchoiceState) {
+func EngineForkStates(blockStore BlockStore, interceptorForkState eth.ForkchoiceState) (eth.ForkchoiceState, eth.ForkchoiceState) {
 	head, safe, finalized := interceptorForkState.HeadBlockHash, interceptorForkState.SafeBlockHash, interceptorForkState.FinalizedBlockHash
 
-	abci = eth.ForkchoiceState{
+	abci := eth.ForkchoiceState{
 		HeadBlockHash:      blockStore.GetCompositeBlock(head).ABCIHash,
 		SafeBlockHash:      blockStore.GetCompositeBlock(safe).ABCIHash,
 		FinalizedBlockHash: blockStore.GetCompositeBlock(finalized).ABCIHash,
 	}
 
-	geth = eth.ForkchoiceState{
+	geth := eth.ForkchoiceState{
 		HeadBlockHash:      blockStore.GetCompositeBlock(head).GethHash,
 		SafeBlockHash:      blockStore.GetCompositeBlock(safe).GethHash,
 		FinalizedBlockHash: blockStore.GetCompositeBlock(finalized).GethHash,
 	}
 
-	return
+	return abci, geth
 }

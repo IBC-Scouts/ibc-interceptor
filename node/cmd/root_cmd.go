@@ -49,7 +49,7 @@ func startCmd() *cobra.Command {
 			if err = PeptideStart(); err != nil {
 				return err
 			}
-			config.PeptideEngineAddr = eeWsUrl
+			config.PeptideEngineAddr = eeWsURL
 			// Sleep for a bit before starting the interceptor node.
 			time.Sleep(2 * time.Second)
 

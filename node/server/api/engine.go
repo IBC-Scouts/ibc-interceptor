@@ -15,9 +15,10 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	eetypes "github.com/ibc-scouts/ibc-interceptor/node/types"
 
 	"github.com/cometbft/cometbft/libs/log"
+
+	eetypes "github.com/ibc-scouts/ibc-interceptor/node/types"
 )
 
 // TODO(jim): passed by lock.
@@ -102,7 +103,10 @@ func (e *engineServer) ForkchoiceUpdatedV2(
 
 		for _, msg := range msgs {
 			e.logger.Info("forwarding a message to abci mempool", "msg", msg)
-			e.peptideRPC.CallContext(context.TODO(), nil, "intercept_addMsgToTxMempool", msg)
+			err = e.peptideRPC.CallContext(context.TODO(), nil, "intercept_addMsgToTxMempool", msg)
+			if err != nil {
+				e.logger.Error("failed to forward message to abci mempool", "error", err)
+			}
 		}
 	}
 

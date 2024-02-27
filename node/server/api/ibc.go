@@ -3,10 +3,13 @@ package api
 import (
 	"context"
 
-	"github.com/cometbft/cometbft/libs/log"
-	channeltypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum/go-ethereum/rpc"
+
+	"github.com/ethereum-optimism/optimism/op-service/client"
+
+	"github.com/cometbft/cometbft/libs/log"
+
+	channeltypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 )
 
 func GetCosmosAPI(mempoolNode MempoolNode, peptideRPC client.RPC, logger log.Logger) rpc.API {
@@ -19,7 +22,7 @@ func GetCosmosAPI(mempoolNode MempoolNode, peptideRPC client.RPC, logger log.Log
 // cosmosServer is the API for the underlying cosmos app.
 type cosmosServer struct {
 	mempoolNode MempoolNode
-	peptideRPC client.RPC
+	peptideRPC  client.RPC
 	logger      log.Logger
 }
 

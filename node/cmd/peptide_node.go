@@ -11,11 +11,11 @@ import (
 
 const (
 	// Default address for peptide app rpc.
-	appRpcAddress = "localhost:0"
+	appRPCAddress = "localhost:0"
 	// Default address for peptide engine rpc.
-	eeHttpServerAddress = "localhost:35462"
-	// Same as eeHttpServerAddress, used by us to connect to peptide.
-	eeWsUrl = "ws://127.0.0.1:35462/websocket"
+	eeHTTPServerAddress = "localhost:35462"
+	// Same as eeHTTPServerAddress, used by us to connect to peptide.
+	eeWsURL = "ws://127.0.0.1:35462/websocket"
 )
 
 // Get the binary path for the peptide binary.
@@ -47,8 +47,8 @@ func PeptideStart() error {
 	cmd := exec.Command(
 		binPath,
 		"start-in-mem",
-		"--app-rpc-address", appRpcAddress,
-		"--ee-http-server-address", eeHttpServerAddress,
+		"--app-rpc-address", appRPCAddress,
+		"--ee-http-server-address", eeHTTPServerAddress,
 	)
 	fmt.Printf("Running start-in-mem command: %s\n", cmd.String())
 
