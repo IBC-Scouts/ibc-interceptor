@@ -324,3 +324,14 @@ func (e *ethServer) GetTransactionReceipt(txHash common.Hash) (map[string]any, e
 	e.logger.Info("completed: GetTransactionReceipt", "error", err, "result", result)
 	return result, err
 }
+
+// Added to be able to intercept and forward eth transactions.
+func (e *ethServer) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
+	e.logger.Info("trying: SendRawTransaction")
+
+	var result common.Hash
+	err := e.ethRPC.CallContext(context.TODO(), &result, "eth_sendRawTransaction", data)
+
+	e.logger.Info("completed: SendRawTransaction", "error", err, "result", result)
+	return result, err
+}
