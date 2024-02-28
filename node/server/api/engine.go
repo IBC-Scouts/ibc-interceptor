@@ -335,3 +335,56 @@ func (e *ethServer) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) 
 	e.logger.Info("completed: SendRawTransaction", "error", err, "result", result)
 	return result, err
 }
+
+func (e *ethServer) MaxPriorityFeePerGas() (hexutil.Big, error) {
+	e.logger.Info("trying: MaxPriorityFeePerGas")
+
+	var result hexutil.Big
+	err := e.ethRPC.CallContext(context.TODO(), &result, "eth_maxPriorityFeePerGas")
+
+	e.logger.Info("completed: MaxPriorityFeePerGas", "result", result, "error", err)
+	return result, err
+}
+
+func (e *ethServer) GetCode(address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (hexutil.Bytes, error) {
+	e.logger.Info("trying: GetCode")
+
+	var result hexutil.Bytes
+	err := e.ethRPC.CallContext(context.TODO(), &result, "eth_getCode", address, blockNrOrHash)
+
+	e.logger.Info("completed: GetCode", "result", result, "error", err)
+	return result, err
+}
+
+func (e *ethServer) EstimateGas(arg1 any) (hexutil.Uint64, error) {
+	e.logger.Info("trying: EstimateGas")
+
+	var result hexutil.Uint64
+	err := e.ethRPC.CallContext(context.TODO(), &result, "eth_estimateGas", arg1)
+	if err != nil {
+		return 0, err
+	}
+
+	e.logger.Info("completed: EstimateGas", "result", result, "error", err)
+	return result, nil
+}
+
+func (e *ethServer) GetTransactionCount(address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (hexutil.Uint64, error) {
+	e.logger.Info("trying: GetTransactionCount")
+
+	var result hexutil.Uint64
+	err := e.ethRPC.CallContext(context.TODO(), &result, "eth_getTransactionCount", address, blockNrOrHash)
+
+	e.logger.Info("completed: GetTransactionCount", "result", result, "error", err)
+	return result, err
+}
+
+func (e *ethServer) Call(msg any, blockNrOrHash rpc.BlockNumberOrHash) (hexutil.Bytes, error) {
+	e.logger.Info("trying: Call")
+
+	var result hexutil.Bytes
+	err := e.ethRPC.CallContext(context.TODO(), &result, "eth_call", msg, blockNrOrHash)
+
+	e.logger.Info("completed: Call", "result", result, "error", err)
+	return result, err
+}
