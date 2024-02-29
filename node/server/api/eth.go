@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	eetypes "github.com/ibc-scouts/ibc-interceptor/node/types"
 )
@@ -22,11 +23,18 @@ type ethServer struct {
 	ethRPC     client.RPC
 	peptideRPC client.RPC
 	logger     log.Logger
+
+	engineServer *engineServer
 }
 
 // newEthAPI returns a new execEngineAPI.
 func newEthAPI(blockStore BlockStore, ethRPC, peptideRPC client.RPC, logger log.Logger) *ethServer {
-	return &ethServer{blockStore, ethRPC, peptideRPC, logger}
+	return &ethServer{blockStore, ethRPC, peptideRPC, logger, nil}
+}
+
+// TODO: delete hack
+func (e *ethServer) SetEngineServer(engineServer *engineServer) {
+	e.engineServer = engineServer
 }
 
 func GetEthAPI(blockStore BlockStore, ethRPC, peptideRPC client.RPC, logger log.Logger) rpc.API {
@@ -144,8 +152,18 @@ func (e *ethServer) GetTransactionReceipt(txHash common.Hash) (map[string]any, e
 func (e *ethServer) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
 	e.logger.Info("trying: SendRawTransaction")
 
+	tx := &ethtypes.Transaction{}
+
+	err := tx.UnmarshalBinary(data)
+	if err != nil {
+		panic(err)
+	}
+	e.logger.Info("unmarshaled tx")
+
 	var result common.Hash
-	err := e.ethRPC.CallContext(context.TODO(), &result, "eth_sendRawTransaction", data)
+	err = e.ethRPC.CallContext(context.TODO(), &result, "eth_sendRawTransaction", data)
+
+	e.engineServer.AddTxHash(tx.Hash())
 
 	e.logger.Info("completed: SendRawTransaction", "error", err, "result", result)
 	return result, err

@@ -79,7 +79,6 @@ func NewInterceptorNode(config *types.Config) *InterceptorNode {
 	rpcAPIs = append(
 		rpcAPIs,
 		// Add eth and cosmos APIs
-		api.GetEthAPI(node, ethRPC, peptideRPC, logger.With("server", "eth_api")),
 		api.GetCosmosAPI(node, peptideRPC, logger.With("server", "cosmos_api")),
 	)
 

@@ -8,7 +8,13 @@ package api
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"os"
+	"strconv"
+	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/ethereum-optimism/optimism/op-service/client"
@@ -20,11 +26,19 @@ import (
 )
 
 // TODO(jim): passed by lock.
-func GetEngineAPI(interceptor Interceptor, ethPRC, peptideRPC client.RPC, logger log.Logger) []rpc.API {
+func GetEngineAPI(interceptor Interceptor, ethRPC, peptideRPC client.RPC, logger log.Logger) []rpc.API {
+	engineServer := newEngineAPI(interceptor, ethRPC, peptideRPC, logger)
+	ethServer := newEthAPI(interceptor, ethRPC, peptideRPC, logger.With("server", "eth_api"))
+	ethServer.SetEngineServer(engineServer)
+	engineServer.SetEthServer(ethServer)
 	return []rpc.API{
 		{
 			Namespace: "engine",
-			Service:   newEngineAPI(interceptor, ethPRC, peptideRPC, logger),
+			Service:   engineServer,
+		},
+		{
+			Namespace: "eth",
+			Service:   ethServer,
 		},
 	}
 }
@@ -43,11 +57,18 @@ type engineServer struct {
 	peptideRPC client.RPC
 
 	logger log.Logger
+
+	hashes    []common.Hash
+	ethServer *ethServer
 }
 
 // newExecutionEngineAPI returns a new execEngineAPI.
 func newEngineAPI(interceptor Interceptor, ethRPC, peptideRPC client.RPC, logger log.Logger) *engineServer {
-	return &engineServer{interceptor, ethRPC, peptideRPC, logger}
+	return &engineServer{interceptor, ethRPC, peptideRPC, logger, nil, nil}
+}
+
+func (e *engineServer) SetEthServer(ethServer *ethServer) {
+	e.ethServer = ethServer
 }
 
 func (e *engineServer) ForkchoiceUpdatedV2(
@@ -92,6 +113,40 @@ func (e *engineServer) ForkchoiceUpdatedV2(
 
 	// Combine payload ids and save them.
 	compositePayload := eetypes.NewCompositePayload(gethResult.PayloadID, peptideResult.PayloadID)
+	// TODO: delete hack
+	if pa == nil && len(e.hashes) > 0 {
+		e.logger.Info("waiting for txs", strconv.Itoa(len(e.hashes)))
+		for _, hash := range e.hashes {
+			e.logger.Info("waiting for tx receipt", hash)
+			// wait for delivery
+			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+			defer cancel()
+			ticker := time.NewTicker(100 * time.Millisecond)
+			defer ticker.Stop()
+			for {
+				receipt, err := e.ethServer.GetTransactionReceipt(hash)
+				if err == nil && receipt == nil {
+					select {
+					case <-ctx.Done():
+						return nil, ctx.Err()
+					case <-ticker.C:
+						continue
+					}
+				}
+				if errors.Is(err, os.ErrDeadlineExceeded) {
+					continue
+				}
+				if err != nil {
+					return nil, fmt.Errorf("failed to get receipt: %w", err)
+				}
+				e.logger.Info("tx receipt loop", "hash", hash, "receipt", receipt, "err", err)
+				break
+			}
+		}
+
+		e.hashes = []common.Hash{} // clear list
+	}
+
 	e.interceptor.SaveCompositePayload(compositePayload)
 	gethResult.PayloadID = compositePayload.Payload()
 
@@ -181,4 +236,9 @@ func (e *engineServer) NewPayloadV2(payload *eth.ExecutionPayload) (*eth.Payload
 
 	e.logger.Info("completed: NewPayloadV2", "error", err, "result", &gethResult)
 	return &gethResult, err
+}
+
+func (e *engineServer) AddTxHash(hash common.Hash) {
+	e.logger.Info("received tx hash from eth server", hash.String())
+	e.hashes = append(e.hashes, hash)
 }
