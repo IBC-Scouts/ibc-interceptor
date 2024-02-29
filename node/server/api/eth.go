@@ -3,11 +3,14 @@ package api
 import (
 	"context"
 
-	"github.com/cometbft/cometbft/libs/log"
-	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
+
+	"github.com/ethereum-optimism/optimism/op-service/client"
+
+	"github.com/cometbft/cometbft/libs/log"
+
 	eetypes "github.com/ibc-scouts/ibc-interceptor/node/types"
 )
 
