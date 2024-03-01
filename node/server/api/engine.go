@@ -60,7 +60,6 @@ func (e *engineServer) ForkchoiceUpdatedV2(
 	var gethResult eth.ForkchoiceUpdatedResult
 	err := e.ethRPC.CallContext(context.TODO(), &gethResult, "engine_forkchoiceUpdatedV2", gethFcs, pa)
 	if err != nil {
-		// TODO(jim): What do we do if geth for some reason errs and we dont?
 		e.logger.Error("failed to forward ForkchoiceUpdatedV2 to geth engine", "error", err)
 		return nil, err
 	}
@@ -114,7 +113,6 @@ func (e *engineServer) GetPayloadV2(payloadID eth.PayloadID) (*eth.ExecutionPayl
 	var gethResult eth.ExecutionPayloadEnvelope
 	err := e.ethRPC.CallContext(context.TODO(), &gethResult, "engine_getPayloadV2", gethPayload)
 	if err != nil {
-		// TODO(jim): What do we do if geth for some reason errs and we dont?
 		e.logger.Error("failed to forward GetPayloadV2 to geth engine", "error", err)
 		return nil, err
 	}
@@ -144,7 +142,6 @@ func (e *engineServer) GetPayloadV2(payloadID eth.PayloadID) (*eth.ExecutionPayl
 	return &gethResult, err
 }
 
-// TODO(jim): Decompose the blockHash + parentHash as set in the result for GetPayloadV2
 func (e *engineServer) NewPayloadV2(payload *eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
 	compositeBlockHash := e.interceptor.GetCompositeBlock(payload.BlockHash)
 	compositeParentHash := e.interceptor.GetCompositeBlock(payload.ParentHash)
@@ -157,7 +154,6 @@ func (e *engineServer) NewPayloadV2(payload *eth.ExecutionPayload) (*eth.Payload
 	var gethResult eth.PayloadStatusV1
 	err := e.ethRPC.CallContext(context.TODO(), &gethResult, "engine_newPayloadV2", payload)
 	if err != nil {
-		// TODO(jim): What do we do if geth for some reason errs and we dont?
 		e.logger.Error("failed to forward NewPayloadV2 to geth engine", "error", err)
 		return nil, err
 	}
