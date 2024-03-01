@@ -1,6 +1,10 @@
 package api
 
-import "github.com/ethereum-optimism/optimism/op-service/eth"
+import (
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
+)
 
 const ibcBridgeAddress = "0x42000000000000000000000000000000000000E1"
 
@@ -26,6 +30,13 @@ func EngineForkStates(blockStore BlockStore, interceptorForkState eth.Forkchoice
 
 // IsIBCBridgeTx returns true if the transaction is a transaction sent to the IBCStandardBridge.
 // tx is a hex encoded marshalled types.Transaction (op-geth/core/types/transaction.go)
-func IsIBCBridgeTx(tx []byte) bool {
-	return false
+func IsIBCBridgeTx(data hexutil.Bytes) bool {
+	tx := new(types.Transaction)
+	if err := tx.UnmarshalBinary(data); err != nil {
+		// This will fail in op-geth if we can't unmarshal so, just
+		// return false here.
+		return false
+	}
+
+	return tx.To().Hex() == ibcBridgeAddress
 }
