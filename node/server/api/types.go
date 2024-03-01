@@ -46,23 +46,3 @@ type PayloadStore interface {
 // TODO(jim): Ethereum JSON/RPC dictates responses should either return 0, 1 (response or error) or 2 (response and error).
 // For now, we return 2 just to keep separated.
 type SendCosmosTxResult struct{}
-
-// EngineForkStates takes in the interceptor fork state and the blockstore and creates two states for abci and
-// geth.
-func EngineForkStates(blockStore BlockStore, interceptorForkState eth.ForkchoiceState) (eth.ForkchoiceState, eth.ForkchoiceState) {
-	head, safe, finalized := interceptorForkState.HeadBlockHash, interceptorForkState.SafeBlockHash, interceptorForkState.FinalizedBlockHash
-
-	abci := eth.ForkchoiceState{
-		HeadBlockHash:      blockStore.GetCompositeBlock(head).ABCIHash,
-		SafeBlockHash:      blockStore.GetCompositeBlock(safe).ABCIHash,
-		FinalizedBlockHash: blockStore.GetCompositeBlock(finalized).ABCIHash,
-	}
-
-	geth := eth.ForkchoiceState{
-		HeadBlockHash:      blockStore.GetCompositeBlock(head).GethHash,
-		SafeBlockHash:      blockStore.GetCompositeBlock(safe).GethHash,
-		FinalizedBlockHash: blockStore.GetCompositeBlock(finalized).GethHash,
-	}
-
-	return abci, geth
-}

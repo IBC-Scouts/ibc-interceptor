@@ -14,7 +14,10 @@ import (
 	eetypes "github.com/ibc-scouts/ibc-interceptor/node/types"
 )
 
-/* 'eth_' prefixed server methods, only required ones. */
+/* 'eth_' prefixed server methods, only required ones.
+
+Most of these should be a pure pass through (we probably shouldn't even log).
+*/
 
 // ethServer is the API for the eth like server.
 // Implements required 'eth_' prefixed methods.
@@ -37,6 +40,17 @@ func GetEthAPI(blockStore BlockStore, ethRPC, peptideRPC client.RPC, logger log.
 		Namespace: "eth",
 		Service:   newEthAPI(blockStore, ethRPC, peptideRPC, logger),
 	}
+}
+
+// Added to be able to intercept and forward eth transactions.
+func (e *ethServer) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
+	e.logger.Info("trying: SendRawTransaction")
+
+	var result common.Hash
+	err := e.ethRPC.CallContext(context.TODO(), &result, "eth_sendRawTransaction", data)
+
+	e.logger.Info("completed: SendRawTransaction", "error", err, "result", result)
+	return result, err
 }
 
 func (e *ethServer) ChainId() (hexutil.Big, error) { // nolint: revive, stylecheck
@@ -121,6 +135,8 @@ func (e *ethServer) GetBlockByHash(id any, fullTx bool) (map[string]any, error) 
 	return gethResult, err
 }
 
+// --- Pass through methods, required for intercepting 'sendRawTransaction'. We don't need to do anything special here.
+
 // Added for completeness -- tests do not appear to invoke for time being.
 func (e *ethServer) GetProof(address common.Address, storageKeys []string, blockNrOrHash rpc.BlockNumberOrHash) (map[string]any, error) {
 	e.logger.Info("trying: GetProof")
@@ -140,17 +156,6 @@ func (e *ethServer) GetTransactionReceipt(txHash common.Hash) (map[string]any, e
 	err := e.ethRPC.CallContext(context.TODO(), &result, "eth_getTransactionReceipt", txHash)
 
 	e.logger.Info("completed: GetTransactionReceipt", "error", err, "result", result)
-	return result, err
-}
-
-// Added to be able to intercept and forward eth transactions.
-func (e *ethServer) SendRawTransaction(data hexutil.Bytes) (common.Hash, error) {
-	e.logger.Info("trying: SendRawTransaction")
-
-	var result common.Hash
-	err := e.ethRPC.CallContext(context.TODO(), &result, "eth_sendRawTransaction", data)
-
-	e.logger.Info("completed: SendRawTransaction", "error", err, "result", result)
 	return result, err
 }
 
@@ -174,11 +179,11 @@ func (e *ethServer) GetCode(address common.Address, blockNrOrHash rpc.BlockNumbe
 	return result, err
 }
 
-func (e *ethServer) EstimateGas(arg1 any) (hexutil.Uint64, error) {
+func (e *ethServer) EstimateGas(msg any) (hexutil.Uint64, error) {
 	e.logger.Info("trying: EstimateGas")
 
 	var result hexutil.Uint64
-	err := e.ethRPC.CallContext(context.TODO(), &result, "eth_estimateGas", arg1)
+	err := e.ethRPC.CallContext(context.TODO(), &result, "eth_estimateGas", msg)
 	if err != nil {
 		return 0, err
 	}
