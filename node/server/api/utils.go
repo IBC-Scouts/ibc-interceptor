@@ -1,9 +1,10 @@
 package api
 
 import (
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
 const ibcBridgeAddress = "0x42000000000000000000000000000000000000E1"
