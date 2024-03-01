@@ -1,9 +1,11 @@
 package node
 
 import (
+	"context"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -14,6 +16,8 @@ import (
 	eetypes "github.com/ibc-scouts/ibc-interceptor/node/types"
 	"github.com/ibc-scouts/ibc-interceptor/types"
 )
+
+const IBCCrossDomainMessenger = "0x42000000000000000000000000000000000000E0"
 
 // InterceptorNode is the main struct for the Interceptor node that facilitates communication
 // between the op-node on one side and the ethereum and sdk engines on the other. It holds
@@ -34,6 +38,9 @@ type InterceptorNode struct {
 
 	logger types.CompositeLogger
 	lock   sync.RWMutex
+
+	// eventCh is used to receive events from the Ethereum node
+	eventCh chan<- []*ethtypes.Log
 }
 
 func NewInterceptorNode(config *types.Config) *InterceptorNode {
@@ -59,6 +66,19 @@ func NewInterceptorNode(config *types.Config) *InterceptorNode {
 		peptideRPC:   peptideRPC,
 		blockStore:   make(map[common.Hash]eetypes.CompositeBlock),
 		payloadStore: make(map[eth.PayloadID]eetypes.CompositePayload),
+		eventCh:      make(chan []*ethtypes.Log),
+	}
+
+	arg := map[string]interface{}{
+		"address": []common.Address{common.HexToAddress(IBCCrossDomainMessenger)},
+		// "topics":  q.Topics,
+	}
+
+	// subscribe based on a modification of:
+	// https://github.com/ethereum-optimism/op-geth/blob/0402d543c3d0cff3a3d344c0f4f83809edb44f10/ethclient/ethclient.go#L444
+	_, err = ethRPC.EthSubscribe(context.Background(), node.eventCh, "logs", arg)
+	if err != nil {
+		panic(err)
 	}
 
 	// Add APIs to the RPC server
