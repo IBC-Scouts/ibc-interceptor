@@ -10,8 +10,7 @@ import (
 )
 
 type (
-	Hash  = eetypes.Hash
-	Block = eetypes.Block
+	Hash = eetypes.Hash
 )
 
 type Interceptor interface {
